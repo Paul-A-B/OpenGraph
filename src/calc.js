@@ -1,18 +1,7 @@
-let graph = document.getElementById("graph");
-let ctx = graph.getContext("2d");
-
-window.addEventListener("load", reset);
-window.addEventListener("resize", reset);
-
-function reset() {
-  graph.width = document.body.clientWidth;
-  graph.height = document.body.clientHeight;
-}
-
 const operators = ["-", "+", "*", "/"];
 
-let inputArea = document.getElementById("input");
-let outputArea = document.getElementById("output");
+const inputArea = document.getElementById("input");
+const outputArea = document.getElementById("output");
 
 inputArea.addEventListener("input", takeInput);
 
@@ -21,10 +10,12 @@ function takeInput() {
     let input = inputArea.value;
     input = input.split(/([-+*/^().])/g).filter((el) => el != "");
     console.log(validOperation(input));
-    if (validOperation(input)) {
-      output.innerHTML = `${input.join("")} = ${Function(
+    try {
+      output.textContent = `${input.join("")} = ${Function(
         `return ${input.join("")}`
       )()}`;
+    } catch {
+      output.textContent = `${input.join("")} (SYNTAX ERROR)`;
     }
   }
 }
