@@ -63,30 +63,38 @@ function reset() {
     camera.aspect = canvas.clientWidth / canvas.clientHeight;
     camera.updateProjectionMatrix();
   }
-  xScale = visibleWidthAtZDepth(camera.position.z, camera) / 2; // doppelt so viel, wie man sehen kann
-  yScale = visibleHeightAtZDepth(camera.position.z, camera) / 2;
+  xScale = visibleWidthAtZDepth(camera.position.z, camera) / 4; // so viel, wie man sehen kann
+  yScale = visibleHeightAtZDepth(camera.position.z, camera) / 4;
   drawGrid();
+}
+
+function Grid(mesh, boundingBox) {
+  (this.mesh = mesh), (this.boundingBox = boundingBox);
 }
 
 let activeGrid;
 
 function drawGrid() {
-  if (activeGrid) scene.remove(activeGrid);
+  if (activeGrid) scene.remove(activeGrid.mesh);
 
   const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
 
-  const grid = new THREE.Group();
+  const gridGroup = new THREE.Group();
   const verticalLines = new THREE.Group();
   const horizontalLines = new THREE.Group();
 
   for (
-    let x = Math.round(-xScale + camera.position.x);
-    x <= Math.round(xScale + camera.position.x);
+    let x = Math.round(-xScale * 2 + camera.position.x);
+    x <= Math.round(xScale * 2 + camera.position.x);
     x++
   ) {
     const verticalPoints = [];
-    verticalPoints.push(new THREE.Vector3(x, -yScale + camera.position.y, 0));
-    verticalPoints.push(new THREE.Vector3(x, yScale + camera.position.y, 0));
+    verticalPoints.push(
+      new THREE.Vector3(x, -yScale * 2 + camera.position.y, 0)
+    );
+    verticalPoints.push(
+      new THREE.Vector3(x, yScale * 2 + camera.position.y, 0)
+    );
 
     const verticalLineGeometry = new THREE.BufferGeometry().setFromPoints(
       verticalPoints
@@ -96,16 +104,20 @@ function drawGrid() {
 
     verticalLines.add(verticalLine);
   }
-  grid.add(verticalLines);
+  gridGroup.add(verticalLines);
 
   for (
-    let y = Math.round(-yScale + camera.position.y);
-    y <= Math.round(yScale + camera.position.y);
+    let y = Math.round(-yScale * 2 + camera.position.y);
+    y <= Math.round(yScale * 2 + camera.position.y);
     y++
   ) {
     const horizontalPoints = [];
-    horizontalPoints.push(new THREE.Vector3(-xScale + camera.position.x, y, 0));
-    horizontalPoints.push(new THREE.Vector3(xScale + camera.position.x, y, 0));
+    horizontalPoints.push(
+      new THREE.Vector3(-xScale * 2 + camera.position.x, y, 0)
+    );
+    horizontalPoints.push(
+      new THREE.Vector3(xScale * 2 + camera.position.x, y, 0)
+    );
 
     const horizontalLineGeometry = new THREE.BufferGeometry().setFromPoints(
       horizontalPoints
@@ -115,11 +127,14 @@ function drawGrid() {
 
     horizontalLines.add(horizontalLine);
   }
-  grid.add(horizontalLines);
+  gridGroup.add(horizontalLines);
 
-  activeGrid = grid;
+  const gridBoundingBox = new THREE.Box3();
+  gridBoundingBox.setFromObject(gridGroup, true);
 
-  scene.add(grid);
+  activeGrid = new Grid(gridGroup, gridBoundingBox);
+
+  scene.add(activeGrid.mesh);
 }
 
 import { create, all } from "mathjs";
@@ -135,13 +150,22 @@ const outputArea = document.getElementById("output");
 
 inputArea.addEventListener("input", takeInput);
 
+function Graph(fx, mesh, boundingBox) {
+  this.fx = fx;
+  this.mesh = mesh;
+  this.boundingBox = boundingBox;
+}
+
 const activeGraphs = [];
-const activeFunctions = [];
 
 function takeInput() {
-  activeFunctions.shift();
   let input = inputArea.value;
   try {
+    if (activeGraphs[0]) {
+      scene.remove(activeGraphs[0].mesh);
+      activeGraphs.shift();
+    }
+
     if (input) {
       if (input.includes("x")) {
         outputArea.textContent = `f(x) = ${input}`;
@@ -149,9 +173,7 @@ function takeInput() {
         outputArea.textContent = `${input} = ${parser.evaluate(input)}`;
       }
 
-      activeFunctions.push(input);
-
-      plotGraph(activeFunctions[0]);
+      plotGraph(input);
     } else {
       outputArea.textContent = "";
     }
@@ -164,46 +186,94 @@ function takeInput() {
   }
 }
 
-function plotGraph(fx) {
-  scene.remove(activeGraphs[0]);
+import { MeshLine, MeshLineMaterial } from "three.meshline";
 
-  activeGraphs.shift();
+function plotGraph(fx) {
+  if (activeGraphs[0]) {
+    scene.remove(activeGraphs[0].mesh);
+    activeGraphs.shift();
+  }
 
   const graphPoints = [];
 
   for (
-    let x = -xScale / 2 + camera.position.x;
-    x <= xScale / 2 + camera.position.x;
-    x += 1 / renderer.domElement.width
+    let x = -xScale * 2 + camera.position.x;
+    x <= xScale * 2 + camera.position.x;
+    x += (xScale * 2) / renderer.domElement.width
   ) {
     parser.set("x", x);
     const point = { x: x, y: parser.evaluate(fx), z: 0 };
     if (point.y) graphPoints.push(new THREE.Vector3(point.x, point.y, point.z));
   }
 
-  const graphGeometry = new THREE.TubeGeometry(
-    new THREE.CatmullRomCurve3(graphPoints),
-    graphPoints.length,
-    0.05,
-    4,
-    false
-  );
+  const graphGeometry = new THREE.BufferGeometry().setFromPoints(graphPoints);
 
-  const graphMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+  const graphMaterial = new MeshLineMaterial({
+    color: 0x000000,
+    resolution: new THREE.Vector2(
+      renderer.domElement.width,
+      renderer.domElement.height
+    ),
+    sizeAttenuation: 0,
+    lineWidth: 10,
+  });
 
-  const graph = new THREE.Mesh(graphGeometry, graphMaterial);
+  const graphLine = new MeshLine();
+  graphLine.setGeometry(graphGeometry);
 
-  activeGraphs.push(graph);
+  const graphMesh = new THREE.Mesh(graphLine, graphMaterial);
+  graphMesh.geometry.computeBoundingBox();
 
-  scene.add(graph);
+  const graphBoundingBox = new THREE.Box3();
+  graphBoundingBox
+    .copy(graphMesh.geometry.boundingBox)
+    .applyMatrix4(graphMesh.matrixWorld);
+
+  const newGraph = new Graph(fx, graphMesh, graphBoundingBox);
+
+  activeGraphs.push(newGraph);
+
+  scene.add(activeGraphs[0].mesh);
 }
 
-controls.addEventListener("end", draw);
+let lastCameraZ = camera.position.z;
+
+controls.addEventListener("change", draw);
 
 function draw() {
-  xScale = visibleWidthAtZDepth(camera.position.z, camera) / 2; // doppelt so viel, wie man sehen kann
-  yScale = visibleHeightAtZDepth(camera.position.z, camera) / 2;
-
-  drawGrid();
-  if (activeFunctions[0]) plotGraph(activeFunctions[0]);
+  xScale = visibleWidthAtZDepth(camera.position.z, camera) / 4; // so viel, wie man sehen kann
+  yScale = visibleHeightAtZDepth(camera.position.z, camera) / 4;
+  let cameraBox = {
+    max: new THREE.Vector3(
+      xScale + camera.position.x,
+      yScale + camera.position.y,
+      0
+    ),
+    min: new THREE.Vector3(
+      -xScale + camera.position.x,
+      -yScale + camera.position.y,
+      0
+    ),
+  };
+  if (activeGraphs[0]) {
+    if (
+      activeGraphs[0].boundingBox.max.x < cameraBox.max.x ||
+      activeGraphs[0].boundingBox.min.x > cameraBox.min.x ||
+      camera.position.z >= lastCameraZ * 2 ||
+      camera.position.z <= lastCameraZ / 2
+    ) {
+      plotGraph(activeGraphs[0].fx);
+      lastCameraZ = camera.position.z;
+    }
+  }
+  if (activeGrid) {
+    if (
+      activeGrid.boundingBox.max.x < cameraBox.max.x ||
+      activeGrid.boundingBox.max.y < cameraBox.max.y ||
+      activeGrid.boundingBox.min.x > cameraBox.min.x ||
+      activeGrid.boundingBox.min.y > cameraBox.min.y
+    ) {
+      drawGrid();
+    }
+  }
 }

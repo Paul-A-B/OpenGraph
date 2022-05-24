@@ -21,7 +21,8 @@
   "homepage": "https://github.com/Paul-A-B/GraphicCalc#readme",
   "dependencies": {
     "mathjs": "^10.5.3",
-    "three": "^0.140.2"
+    "three": "^0.140.2",
+    "three.meshline": "^1.4.0"
   },
   "devDependencies": {
     "webpack": "^5.72.1",
