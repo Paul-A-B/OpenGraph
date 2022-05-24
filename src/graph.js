@@ -52,8 +52,45 @@ const visibleWidthAtZDepth = (depth, camera) => {
 
 let xScale, yScale;
 
+window.addEventListener("load", init);
+
+function PrecalculatedGeometry(geometry, size, offset) {
+  this.geometry = geometry;
+  this.size = size;
+  this.offset = offset;
+}
+
+const charCache = {};
+
+function init() {
+  for (let char of "1234567890.-") {
+    const characterGeometry = new TextGeometry(`${char}`, {
+      font: font,
+      size: 0.25,
+      height: 0,
+    });
+    characterGeometry.computeBoundingBox();
+
+    charCache[char] = new PrecalculatedGeometry(
+      characterGeometry,
+      {
+        width:
+          characterGeometry.boundingBox.max.x -
+          characterGeometry.boundingBox.min.x,
+        height:
+          characterGeometry.boundingBox.max.y -
+          characterGeometry.boundingBox.min.y,
+      },
+      {
+        x: characterGeometry.boundingBox.min.x,
+        y: characterGeometry.boundingBox.min.y,
+      }
+    );
+  }
+  reset();
+}
+
 window.addEventListener("resize", reset);
-window.addEventListener("load", reset);
 
 function reset() {
   const width = (canvas.clientWidth * window.devicePixelRatio) | 0;
@@ -72,16 +109,46 @@ function Grid(mesh, boundingBox) {
   (this.mesh = mesh), (this.boundingBox = boundingBox);
 }
 
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
+
+let font;
+new FontLoader().load("fonts/IBM Plex Mono_Regular.json", (response) => {
+  font = response;
+});
+
 let activeGrid;
 
 function drawGrid() {
   if (activeGrid) scene.remove(activeGrid.mesh);
 
-  const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+  const minorGridLineMaterial = new MeshLineMaterial({
+    color: 0x000000,
+    resolution: new THREE.Vector2(
+      renderer.domElement.width,
+      renderer.domElement.height
+    ),
+    sizeAttenuation: 0,
+    lineWidth: 2.5,
+  });
+  const majorGridLineMaterial = new MeshLineMaterial({
+    color: 0x000000,
+    resolution: new THREE.Vector2(
+      renderer.domElement.width,
+      renderer.domElement.height
+    ),
+    sizeAttenuation: 0,
+    lineWidth: 7.5,
+  });
 
   const gridGroup = new THREE.Group();
+
+  const lineGroup = new THREE.Group();
+
   const verticalLines = new THREE.Group();
   const horizontalLines = new THREE.Group();
+
+  const coordGroup = new THREE.Group();
 
   for (
     let x = Math.round(-xScale * 2 + camera.position.x);
@@ -100,11 +167,76 @@ function drawGrid() {
       verticalPoints
     );
 
-    const verticalLine = new THREE.Line(verticalLineGeometry, lineMaterial);
+    const verticalLine = new MeshLine();
+    verticalLine.setGeometry(verticalLineGeometry);
 
-    verticalLines.add(verticalLine);
+    if (x === 0) {
+      const verticalLineMesh = new THREE.Mesh(
+        verticalLine,
+        majorGridLineMaterial
+      );
+      verticalLines.add(verticalLineMesh);
+    } else {
+      const verticalLineMesh = new THREE.Mesh(
+        verticalLine,
+        minorGridLineMaterial
+      );
+      verticalLines.add(verticalLineMesh);
+
+      const coordMesh = new THREE.Group();
+      let widthOfPreviousCharacters = 0;
+
+      for (let char of x.toString()) {
+        const characterMesh = new THREE.Mesh(
+          charCache[char].geometry,
+          minorGridLineMaterial
+        );
+        characterMesh.position.x =
+          widthOfPreviousCharacters + x - charCache[char].offset.x;
+        if (char === "-") {
+          characterMesh.position.y =
+            0.125 - charCache[char].offset.y - charCache[char].size.height;
+        } else {
+          characterMesh.position.y = -charCache[char].offset.y;
+        }
+        characterMesh.renderOrder = 1; // rendert es später -> es ist vor dem Hintergrund
+        coordMesh.add(characterMesh);
+        widthOfPreviousCharacters += charCache[char].size.width + 0.025;
+      }
+      const coordBoundingBox = new THREE.Box3();
+      coordBoundingBox.setFromObject(coordMesh, true);
+
+      const coordBoundingBoxWidth =
+        coordBoundingBox.max.x - coordBoundingBox.min.x;
+      const coordBoundingBoxHeight =
+        coordBoundingBox.max.y - coordBoundingBox.min.y;
+
+      coordMesh.position.x -= coordBoundingBoxWidth / 2;
+      coordMesh.position.y -= coordBoundingBoxHeight + 0.05;
+
+      const coordBackgroundGeometry = new THREE.PlaneGeometry(
+        coordBoundingBoxWidth,
+        coordBoundingBoxHeight
+      );
+      const coordBackgroundMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+      });
+      const coordBackground = new THREE.Mesh(
+        coordBackgroundGeometry,
+        coordBackgroundMaterial
+      );
+
+      coordBackground.position.x =
+        coordBoundingBox.min.x + coordBoundingBoxWidth / 2;
+      coordBackground.position.y =
+        coordBoundingBox.min.y + coordBoundingBoxHeight / 2;
+
+      coordMesh.add(coordBackground);
+
+      coordGroup.add(coordMesh);
+    }
   }
-  gridGroup.add(verticalLines);
+  lineGroup.add(verticalLines);
 
   for (
     let y = Math.round(-yScale * 2 + camera.position.y);
@@ -123,11 +255,83 @@ function drawGrid() {
       horizontalPoints
     );
 
-    const horizontalLine = new THREE.Line(horizontalLineGeometry, lineMaterial);
+    const horizontalLine = new MeshLine();
+    horizontalLine.setGeometry(horizontalLineGeometry);
 
-    horizontalLines.add(horizontalLine);
+    if (y === 0) {
+      const horizontalLineMesh = new THREE.Mesh(
+        horizontalLine,
+        majorGridLineMaterial
+      );
+      horizontalLines.add(horizontalLineMesh);
+    } else {
+      const horizontalLineMesh = new THREE.Mesh(
+        horizontalLine,
+        minorGridLineMaterial
+      );
+      horizontalLines.add(horizontalLineMesh);
+    }
+
+    const coordMesh = new THREE.Group();
+    let widthOfPreviousCharacters = 0;
+
+    for (let char of y.toString()) {
+      const characterMesh = new THREE.Mesh(
+        charCache[char].geometry,
+        minorGridLineMaterial
+      );
+      characterMesh.position.x =
+        widthOfPreviousCharacters - charCache[char].offset.x;
+      if (char === "-") {
+        characterMesh.position.y =
+          y + 0.125 - charCache[char].offset.y - charCache[char].size.height;
+      } else {
+        characterMesh.position.y = y - charCache[char].offset.y;
+      }
+      characterMesh.renderOrder = 1; // rendert es später -> es ist vor dem Hintergrund
+      coordMesh.add(characterMesh);
+      widthOfPreviousCharacters += charCache[char].size.width + 0.025;
+    }
+    const coordBoundingBox = new THREE.Box3();
+    coordBoundingBox.setFromObject(coordMesh, true);
+
+    const coordBoundingBoxWidth =
+      coordBoundingBox.max.x - coordBoundingBox.min.x;
+    const coordBoundingBoxHeight =
+      coordBoundingBox.max.y - coordBoundingBox.min.y;
+
+    coordMesh.position.x -= coordBoundingBoxWidth + 0.05;
+    if (y === 0) {
+      coordMesh.position.y -= coordBoundingBoxHeight + 0.05;
+    } else {
+      coordMesh.position.y -= coordBoundingBoxHeight / 2;
+    }
+
+    const coordBackgroundGeometry = new THREE.PlaneGeometry(
+      coordBoundingBoxWidth,
+      coordBoundingBoxHeight
+    );
+    const coordBackgroundMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+    });
+    const coordBackground = new THREE.Mesh(
+      coordBackgroundGeometry,
+      coordBackgroundMaterial
+    );
+
+    coordBackground.position.x =
+      coordBoundingBox.min.x + coordBoundingBoxWidth / 2;
+    coordBackground.position.y =
+      coordBoundingBox.min.y + coordBoundingBoxHeight / 2;
+
+    coordMesh.add(coordBackground);
+
+    coordGroup.add(coordMesh);
   }
-  gridGroup.add(horizontalLines);
+  lineGroup.add(horizontalLines);
+
+  gridGroup.add(lineGroup);
+  gridGroup.add(coordGroup);
 
   const gridBoundingBox = new THREE.Box3();
   gridBoundingBox.setFromObject(gridGroup, true);
@@ -137,7 +341,7 @@ function drawGrid() {
   scene.add(activeGrid.mesh);
 }
 
-import { create, all } from "mathjs";
+import { create, all, size } from "mathjs";
 
 const config = {};
 const math = create(all, config);
@@ -222,6 +426,7 @@ function plotGraph(fx) {
   graphLine.setGeometry(graphGeometry);
 
   const graphMesh = new THREE.Mesh(graphLine, graphMaterial);
+  graphMesh.renderOrder = 2; // rendert über Grid und Beschriftung
   graphMesh.geometry.computeBoundingBox();
 
   const graphBoundingBox = new THREE.Box3();
@@ -262,6 +467,7 @@ function draw() {
       camera.position.z >= lastCameraZ * 2 ||
       camera.position.z <= lastCameraZ / 2
     ) {
+      console.log("test");
       plotGraph(activeGraphs[0].fx);
       lastCameraZ = camera.position.z;
     }

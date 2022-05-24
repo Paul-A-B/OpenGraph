@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap");
+
 html,
 body {
   width: 100%;
@@ -16,5 +18,5 @@ body {
 input,
 p {
   display: inline;
-  font-family: monospace;
+  font-family: "IBM Plex Mono", monospace;
 }
