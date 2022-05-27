@@ -341,7 +341,7 @@ function drawGrid() {
   scene.add(activeGrid.mesh);
 }
 
-import { create, all, size } from "mathjs";
+import { create, all } from "mathjs";
 
 const config = {};
 const math = create(all, config);
@@ -362,6 +362,29 @@ function Graph(fx, mesh, boundingBox) {
 
 const activeGraphs = [];
 
+window.MathJax = {
+  options: {
+    enableMenu: false,
+  },
+  chtml: {
+    scale: 1.5,
+  },
+};
+
+(function () {
+  var script = document.createElement("script");
+  script.src = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js";
+  script.async = true;
+  document.head.appendChild(script);
+})();
+
+const mj = function (expression) {
+  return MathJax.tex2chtml(
+    expression.toTex({ parenthesis: "keep", implicit: "hide" }),
+    { display: false }
+  );
+};
+
 function takeInput() {
   let input = inputArea.value;
   try {
@@ -372,10 +395,17 @@ function takeInput() {
 
     if (input) {
       if (input.includes("x")) {
-        outputArea.textContent = `f(x) = ${input}`;
+        outputArea.textContent = "";
+        outputArea.appendChild(mj(math.parse(input)));
       } else {
-        outputArea.textContent = `${input} = ${parser.evaluate(input)}`;
+        outputArea.textContent = "";
+        outputArea.appendChild(mj(math.parse(input)));
+        outputArea.appendChild(
+          document.createTextNode(` = ${math.evaluate(input)}`)
+        );
       }
+      MathJax.startup.document.clear();
+      MathJax.startup.document.updateDocument();
 
       plotGraph(input);
     } else {
@@ -467,7 +497,6 @@ function draw() {
       camera.position.z >= lastCameraZ * 2 ||
       camera.position.z <= lastCameraZ / 2
     ) {
-      console.log("test");
       plotGraph(activeGraphs[0].fx);
       lastCameraZ = camera.position.z;
     }

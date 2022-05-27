@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/Paul-A-B/GraphicCalc#readme",
   "dependencies": {
+    "mathjax": "^3.2.1",
     "mathjs": "^10.5.3",
     "three": "^0.140.2",
     "three.meshline": "^1.4.0"
