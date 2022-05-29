@@ -571,7 +571,11 @@ function takeInput() {
     }
 
     if (input) {
-      if (input.includes("x")) {
+      if (
+        math.parse(input).filter((node) => {
+          return node.isSymbolNode;
+        }).length
+      ) {
         outputArea.textContent = "";
         outputArea.appendChild(mj(math.parse(input)));
       } else {
@@ -604,17 +608,28 @@ function plotGraph(fx) {
     activeGraphs.shift();
   }
 
-  // console.log(parser.evaluate(fx));
-
   const graphPoints = [];
+
+  parser.set("x", 0);
+
+  if (math.parse(fx) instanceof math.FunctionAssignmentNode) {
+    parser.set("f", parser.evaluate(fx));
+  }
 
   for (
     let x = -visibleX + camera.position.x;
     x <= visibleX + camera.position.x;
     x += visibleX / renderer.domElement.width
   ) {
-    parser.set("x", x);
-    const point = { x: x, y: parser.evaluate(fx), z: 0 };
+    let point;
+    if (math.parse(fx) instanceof math.FunctionAssignmentNode) {
+      let f = parser.get("f");
+      point = { x: x, y: f(x), z: 0 };
+    } else {
+      parser.set("x", x);
+      point = { x: x, y: parser.evaluate(fx), z: 0 };
+    }
+
     if (point.y) graphPoints.push(new THREE.Vector3(point.x, point.y, point.z));
   }
 
