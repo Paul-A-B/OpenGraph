@@ -1,11 +1,40 @@
-import { Vector2, Vector3, Group, BufferGeometry, Mesh, Box3 } from "three";
-import { MeshLine, MeshLineMaterial } from "three.meshline";
+import { Vector3, Group, BufferGeometry, Mesh, Box3 } from "three";
+import * as THREE from "three";
+import { MeshLine } from "three.meshline";
 
 function Grid(mesh, boundingBox) {
   (this.mesh = mesh), (this.boundingBox = boundingBox);
 }
 
 export function generateGrid(
+  mode,
+  minorGridLineMaterial,
+  majorGridLineMaterial,
+  visibleCoords,
+  step,
+  cameraPosition
+) {
+  switch (mode) {
+    case "2D":
+      return cartesian2D(
+        minorGridLineMaterial,
+        majorGridLineMaterial,
+        visibleCoords,
+        step,
+        cameraPosition
+      );
+    case "3D":
+      return cartesian3D(
+        minorGridLineMaterial,
+        majorGridLineMaterial,
+        visibleCoords,
+        step,
+        cameraPosition
+      );
+  }
+}
+
+function cartesian2D(
   minorGridLineMaterial,
   majorGridLineMaterial,
   visibleCoords,
@@ -81,4 +110,14 @@ export function generateGrid(
   gridBoundingBox.setFromObject(gridGroup, true);
 
   return new Grid(gridGroup, gridBoundingBox);
+}
+
+function cartesian3D(
+  minorGridLineMaterial,
+  majorGridLineMaterial,
+  visibleCoords,
+  step,
+  cameraPosition
+) {
+  return new Grid(new THREE.AxesHelper(10), null);
 }

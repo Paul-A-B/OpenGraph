@@ -10,6 +10,7 @@ function Redraw(graph = false, grid = false, axes = false) {
 }
 
 export function needsRedraw(
+  mode,
   visibleCoords,
   step,
   cameraPosition,
@@ -17,8 +18,41 @@ export function needsRedraw(
   activeGrid,
   activeAxes
 ) {
-  // switch (select.value) {
-  //     case "2D":
+  switch (mode) {
+    case "2D":
+      return cartesian2D(
+        visibleCoords,
+        step,
+        cameraPosition,
+        activeGraphs,
+        activeGrid,
+        activeAxes
+      );
+    case "3D":
+      const redraw = new Redraw();
+
+      if (activeGraphs.length) {
+        redraw.graph = true;
+      }
+      if (!activeGrid) {
+        redraw.grid = true;
+      }
+      if (!activeAxes) {
+        redraw.axes = true;
+      }
+
+      return redraw;
+  }
+}
+
+function cartesian2D(
+  visibleCoords,
+  step,
+  cameraPosition,
+  activeGraphs,
+  activeGrid,
+  activeAxes
+) {
   let cameraBox = {
     max: new THREE.Vector3(
       visibleCoords.x / 2 + cameraPosition.x,
@@ -95,14 +129,4 @@ export function needsRedraw(
     redraw.axes = true;
   }
   return redraw;
-  //       break;
-  //     case "3D":
-  //       for (let i = scene.children.length - 1; i >= 0; i--) {
-  //         let obj = scene.children[i];
-  //         scene.remove(obj);
-  //       }
-  //       scene.add(new THREE.AxesHelper(10));
-  //       if (activeGraphs[0]) plotGraph(activeGraphs[0].statement);
-  //       break;
-  //   }
 }

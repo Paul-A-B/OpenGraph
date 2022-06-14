@@ -1,4 +1,5 @@
 import { Group, Mesh, Box3, PlaneGeometry, MeshBasicMaterial } from "three";
+import * as THREE from "three";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
@@ -99,7 +100,7 @@ function generateCoordinates(
       );
       characterMesh.scale.setScalar(scale);
       characterMesh.position.x =
-        widthOfPreviousCharacters + x - this.charCache[char].offset.x * scale;
+        widthOfPreviousCharacters - this.charCache[char].offset.x * scale;
       if (char === "-") {
         characterMesh.position.y =
           (0.125 -
@@ -133,6 +134,16 @@ function generateCoordinates(
       coordBackgroundGeometry,
       coordBackgroundMaterial
     );
+    coordBackground.onBeforeRender = (
+      renderer,
+      scene,
+      camera,
+      geometry,
+      material,
+      group
+    ) => {
+      coordMesh.quaternion.copy(camera.quaternion);
+    };
 
     coordBackground.position.x =
       coordBoundingBox.min.x + coordBoundingBoxWidth / 2;
@@ -142,9 +153,9 @@ function generateCoordinates(
     coordMesh.add(coordBackground);
 
     if (x === intersection.x) {
-      coordMesh.position.x -= coordBoundingBoxWidth + 0.05 * scale;
+      coordMesh.position.x = x - (coordBoundingBoxWidth + 0.05 * scale);
     } else {
-      coordMesh.position.x -= coordBoundingBoxWidth / 2;
+      coordMesh.position.x = x - coordBoundingBoxWidth / 2;
     }
     coordMesh.position.y -= coordBoundingBoxHeight + 0.05 * scale;
 
@@ -184,13 +195,12 @@ function generateCoordinates(
           widthOfPreviousCharacters - this.charCache[char].offset.x * scale;
         if (char === "-") {
           characterMesh.position.y =
-            y +
             (0.125 -
               this.charCache[char].offset.y -
               this.charCache[char].size.height) *
-              scale;
+            scale;
         } else {
-          characterMesh.position.y = y - this.charCache[char].offset.y * scale;
+          characterMesh.position.y -= this.charCache[char].offset.y * scale;
         }
         characterMesh.renderOrder = 1; // rendert es später -> es ist vor dem Hintergrund
         coordMesh.add(characterMesh);
@@ -206,7 +216,7 @@ function generateCoordinates(
         coordBoundingBox.max.y - coordBoundingBox.min.y;
 
       coordMesh.position.x -= coordBoundingBoxWidth + 0.05 * scale;
-      coordMesh.position.y -= coordBoundingBoxHeight / 2;
+      coordMesh.position.y = y - coordBoundingBoxHeight / 2;
 
       const coordBackgroundGeometry = new PlaneGeometry(
         coordBoundingBoxWidth,
@@ -219,6 +229,16 @@ function generateCoordinates(
         coordBackgroundGeometry,
         coordBackgroundMaterial
       );
+      coordBackground.onBeforeRender = (
+        renderer,
+        scene,
+        camera,
+        geometry,
+        material,
+        group
+      ) => {
+        coordMesh.quaternion.copy(camera.quaternion);
+      };
 
       coordBackground.position.x =
         coordBoundingBox.min.x + coordBoundingBoxWidth / 2;

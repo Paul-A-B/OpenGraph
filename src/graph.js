@@ -42,8 +42,6 @@ export function generateGraph(
     scope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
   }
 
-  console.log(Object.keys(scope));
-
   for (
     let x = -visibleCoords.x + cameraPosition.x;
     x <= visibleCoords.x + cameraPosition.x;

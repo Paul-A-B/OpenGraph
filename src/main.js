@@ -120,6 +120,7 @@ function init() {
     if (activeGrid) scene.remove(activeGrid.mesh);
 
     activeGrid = generateGrid(
+      select.value,
       minorGridLineMaterial,
       majorGridLineMaterial,
       visibleCoords,
@@ -180,7 +181,6 @@ function init() {
       outputText(input, mathNode);
 
       if (mathNode.isAssignmentNode) {
-        console.log(mathNode);
         scope[mathNode.name] = mathNode.value;
       }
 
@@ -222,6 +222,7 @@ function init() {
     step = Math.min(stepX, stepY);
 
     const redraw = needsRedraw(
+      select.value,
       visibleCoords,
       step,
       camera.position,
@@ -244,6 +245,13 @@ function init() {
   updateView();
 
   select.addEventListener("change", () => {
+    activeGraphs.length = 0;
+    activeGrid = null;
+    activeAxes = null;
+    for (let i = scene.children.length - 1; i >= 0; i--) {
+      let obj = scene.children[i];
+      scene.remove(obj);
+    }
     controls.enableRotate = !controls.enableRotate;
     updateView();
   });
