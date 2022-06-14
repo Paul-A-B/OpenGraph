@@ -168,7 +168,6 @@ function init() {
   }
 
   const activeGraphs = [];
-  const scope = { x: 0, y: 0, z: 0 };
   function takeInput() {
     const input = inputArea.value;
     try {
@@ -181,6 +180,7 @@ function init() {
       outputText(input, mathNode);
 
       if (mathNode.isAssignmentNode) {
+        console.log(mathNode);
         scope[mathNode.name] = mathNode.value;
       }
 
@@ -201,7 +201,6 @@ function init() {
     activeGraphs.push(
       generateGraph(
         statement,
-        scope,
         visibleCoords,
         camera.position,
         canvas,

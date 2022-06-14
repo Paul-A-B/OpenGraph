@@ -12,7 +12,6 @@ function Graph(statement, mesh, boundingBox) {
 
 export function generateGraph(
   statement,
-  scope,
   visibleCoords,
   cameraPosition,
   canvas,
@@ -20,9 +19,30 @@ export function generateGraph(
 ) {
   const graphPoints = [];
 
+  const scope = {};
+
+  if (statement.fnNode.isFunctionAssignmentNode) {
+    for (const variable of statement.fnNode.params) {
+      scope[variable] = undefined;
+    }
+    statement.fnNode = statement.fnNode.expr;
+  } else {
+    for (const variable of statement.fnNode.filter((node, path, parent) => {
+      if (parent) {
+        return node.isSymbolNode && !(parent.fn === node);
+      } else {
+        return node.isSymbolNode;
+      }
+    })) {
+      scope[variable] = undefined;
+    }
+  }
+
   if (statement.usesTime) {
     scope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
   }
+
+  console.log(Object.keys(scope));
 
   for (
     let x = -visibleCoords.x + cameraPosition.x;
@@ -30,11 +50,7 @@ export function generateGraph(
     x += visibleCoords.x / canvas.width
   ) {
     scope.x = x;
-    const point = {
-      x: x,
-      y: statement.fnNode.evaluate(scope),
-      z: 0,
-    };
+    const point = { x: x, y: statement.fnNode.evaluate(scope), z: 0 };
     if (point.y) graphPoints.push(new THREE.Vector3(point.x, point.y, point.z));
   }
 
