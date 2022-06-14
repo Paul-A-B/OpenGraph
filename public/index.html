@@ -11,10 +11,17 @@
   <body>
     <main>
       <div id="text-io">
+        <select name="mode" id="mode-selection">
+          <option value="2D">2D</option>
+          <option value="3D">3D</option>
+        </select>
         <input type="text" id="input" />
         <div id="output"></div>
       </div>
-      <canvas id="graph"></canvas>
+      <div>
+        <canvas id="graph"></canvas>
+        <div id="text-renderer"></div>
+      </div>
     </main>
   </body>
 </html>

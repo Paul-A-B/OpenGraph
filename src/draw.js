@@ -1,0 +1,108 @@
+import * as THREE from "three";
+
+let lastCameraZ;
+let zoomRepaint = false;
+
+function Redraw(graph = false, grid = false, axes = false) {
+  this.graph = graph;
+  this.grid = grid;
+  this.axes = axes;
+}
+
+export function needsRedraw(
+  visibleCoords,
+  step,
+  cameraPosition,
+  activeGraphs,
+  activeGrid,
+  activeAxes
+) {
+  // switch (select.value) {
+  //     case "2D":
+  let cameraBox = {
+    max: new THREE.Vector3(
+      visibleCoords.x / 2 + cameraPosition.x,
+      visibleCoords.y / 2 + cameraPosition.y,
+      0
+    ),
+    min: new THREE.Vector3(
+      -visibleCoords.x / 2 + cameraPosition.x,
+      -visibleCoords.y / 2 + cameraPosition.y,
+      0
+    ),
+  };
+
+  const redraw = new Redraw();
+
+  if (
+    cameraPosition.z >= lastCameraZ * 1.2 ||
+    cameraPosition.z <= lastCameraZ / 1.2 ||
+    !lastCameraZ
+  ) {
+    zoomRepaint = true;
+    lastCameraZ = cameraPosition.z;
+  } else {
+    zoomRepaint = false;
+  }
+
+  if (activeGraphs.length) {
+    if (
+      activeGraphs[0].boundingBox.max.x < cameraBox.max.x ||
+      activeGraphs[0].boundingBox.min.x > cameraBox.min.x ||
+      zoomRepaint
+    ) {
+      redraw.graph = true;
+    }
+  }
+
+  if (activeGrid) {
+    if (
+      activeGrid.boundingBox.max.x < cameraBox.max.x ||
+      activeGrid.boundingBox.max.y < cameraBox.max.y ||
+      activeGrid.boundingBox.min.x > cameraBox.min.x ||
+      activeGrid.boundingBox.min.y > cameraBox.min.y ||
+      zoomRepaint
+    ) {
+      redraw.grid = true;
+    }
+  } else {
+    redraw.grid = true;
+  }
+
+  if (activeAxes) {
+    if (
+      activeAxes.intersection.x !==
+        Math.round((-visibleCoords.x / 2 + cameraPosition.x) / (step / 10)) *
+          (step / 10) +
+          step / 5 ||
+      activeAxes.intersection.x !==
+        Math.round((visibleCoords.x / 2 + cameraPosition.x) / (step / 10)) *
+          (step / 10) -
+          step / 5 ||
+      activeAxes.intersection.y !==
+        Math.round((-visibleCoords.y / 2 + cameraPosition.y) / (step / 10)) *
+          (step / 10) +
+          step / 5 ||
+      activeAxes.intersection.y !==
+        Math.round((visibleCoords.y / 2 + cameraPosition.y) / (step / 10)) *
+          (step / 10) -
+          step / 5 ||
+      zoomRepaint
+    ) {
+      redraw.axes = true;
+    }
+  } else {
+    redraw.axes = true;
+  }
+  return redraw;
+  //       break;
+  //     case "3D":
+  //       for (let i = scene.children.length - 1; i >= 0; i--) {
+  //         let obj = scene.children[i];
+  //         scene.remove(obj);
+  //       }
+  //       scene.add(new THREE.AxesHelper(10));
+  //       if (activeGraphs[0]) plotGraph(activeGraphs[0].statement);
+  //       break;
+  //   }
+}

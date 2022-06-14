@@ -2,7 +2,7 @@ const path = require("path");
 
 module.exports = {
   mode: "development",
-  entry: "./src/graph.js",
+  entry: "./src/main.js",
   output: {
     filename: "app.js",
     publicPath: "/assets/",
