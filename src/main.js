@@ -1,15 +1,16 @@
 import { all, create } from "mathjs";
 import * as THREE from "three";
-import { MeshLineMaterial } from "three.meshline";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { generateAxes } from "./axes";
-import { Coordinates } from "./coords";
+import { initCharacterCache, generateCoordinates } from "./coords";
 import { generateGrid } from "./grid";
 import { outputError, outputText } from "./textOutput";
 import { generateGraph } from "./graph";
 import { needsRedraw } from "./draw";
 
 window.addEventListener("load", init);
+
+THREE.Object3D.DefaultUp.set(0, 0, 1);
 
 function init() {
   const canvas = document.getElementById("graph");
@@ -29,8 +30,8 @@ function init() {
     ((window.innerWidth - textIOArea.getBoundingClientRect().width) *
       window.devicePixelRatio) /
       (window.innerHeight * window.devicePixelRatio),
-    0.01,
-    9999
+    0.1,
+    500
   );
   camera.position.set(0, 0, 25);
   camera.lookAt(0, 0, 0);
@@ -62,6 +63,7 @@ function init() {
         window.innerHeight;
       camera.updateProjectionMatrix();
     }
+    resolution.set(canvas.width, canvas.height);
     updateView();
   }
 
@@ -90,30 +92,7 @@ function init() {
   let stepY = Math.pow(2, Math.floor(Math.log2(visibleCoords.y) - 1));
   let step = Math.min(stepX, stepY);
 
-  const minorGridLineMaterial = new MeshLineMaterial({
-    color: 0x606060,
-    resolution: new THREE.Vector2(canvas.width, canvas.height),
-    sizeAttenuation: 0,
-    lineWidth: 2.5,
-  });
-  const majorGridLineMaterial = new MeshLineMaterial({
-    color: 0x303030,
-    resolution: new THREE.Vector2(canvas.width, canvas.height),
-    sizeAttenuation: 0,
-    lineWidth: 5,
-  });
-  const axesMaterial = new MeshLineMaterial({
-    color: 0x000000,
-    resolution: new THREE.Vector2(canvas.width, canvas.height),
-    sizeAttenuation: 0,
-    lineWidth: 7.5,
-  });
-  const graphMaterial = new MeshLineMaterial({
-    color: 0x000000,
-    resolution: new THREE.Vector2(canvas.width, canvas.height),
-    sizeAttenuation: 0,
-    lineWidth: 10,
-  });
+  const resolution = new THREE.Vector2(canvas.width, canvas.height);
 
   let activeGrid;
   function drawGrid() {
@@ -121,8 +100,7 @@ function init() {
 
     activeGrid = generateGrid(
       select.value,
-      minorGridLineMaterial,
-      majorGridLineMaterial,
+      resolution,
       visibleCoords,
       step,
       camera.position
@@ -131,23 +109,25 @@ function init() {
     scene.add(activeGrid.mesh);
   }
 
+  initCharacterCache();
+
   let activeAxes;
-  const coordinates = new Coordinates();
   function drawAxes() {
     if (activeAxes) scene.remove(activeAxes.mesh);
 
     activeAxes = generateAxes(
+      select.value,
+      resolution,
       visibleCoords,
       step,
-      camera.position,
-      axesMaterial
+      camera.position
     );
     activeAxes.mesh.add(
-      coordinates.generate(
+      generateCoordinates(
+        select.value,
         visibleCoords,
         step,
         camera.position,
-        axesMaterial,
         activeAxes.intersection
       )
     );
@@ -200,11 +180,12 @@ function init() {
 
     activeGraphs.push(
       generateGraph(
+        select.value,
+        resolution,
         statement,
         visibleCoords,
         camera.position,
-        canvas,
-        graphMaterial
+        canvas
       )
     );
 
@@ -240,6 +221,7 @@ function init() {
     if (redraw.axes) {
       drawAxes();
     }
+    renderer.render(scene, camera);
   }
 
   updateView();
@@ -248,11 +230,28 @@ function init() {
     activeGraphs.length = 0;
     activeGrid = null;
     activeAxes = null;
+
     for (let i = scene.children.length - 1; i >= 0; i--) {
-      let obj = scene.children[i];
+      const obj = scene.children[i];
       scene.remove(obj);
     }
-    controls.enableRotate = !controls.enableRotate;
+
+    switch (select.value) {
+      case "2D":
+        camera.position.set(0, 0, 25);
+        camera.up.set(0, 1, 0);
+        controls.enableRotate = false;
+        break;
+      case "3D":
+        camera.position.set(25, 25, 12.5);
+        camera.up.set(0, 0, 1);
+        controls.enableRotate = true;
+    }
+
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
     updateView();
   });
 

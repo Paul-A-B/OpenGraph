@@ -2,7 +2,7 @@
   "name": "graphingcalc",
   "version": "1.0.0",
   "description": "",
-  "main": "src/graph.js",
+  "main": "src/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack",
@@ -21,8 +21,7 @@
   "homepage": "https://github.com/Paul-A-B/GraphicCalc#readme",
   "dependencies": {
     "mathjs": "^10.5.3",
-    "three": "^0.140.2",
-    "three.meshline": "^1.4.0"
+    "three": "^0.140.2"
   },
   "devDependencies": {
     "webpack": "^5.72.1",

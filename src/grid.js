@@ -1,6 +1,18 @@
-import { Vector3, Group, BufferGeometry, Mesh, Box3 } from "three";
-import * as THREE from "three";
-import { MeshLine } from "three.meshline";
+import { Group, Box3 } from "three";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+
+const minorGridLineMaterial = new LineMaterial({
+  color: 0x454545,
+  worldUnits: false,
+  linewidth: 2.5,
+});
+const majorGridLineMaterial = new LineMaterial({
+  color: 0x151515,
+  worldUnits: false,
+  linewidth: 5,
+});
 
 function Grid(mesh, boundingBox) {
   (this.mesh = mesh), (this.boundingBox = boundingBox);
@@ -8,39 +20,22 @@ function Grid(mesh, boundingBox) {
 
 export function generateGrid(
   mode,
-  minorGridLineMaterial,
-  majorGridLineMaterial,
+  resolution,
   visibleCoords,
   step,
   cameraPosition
 ) {
+  minorGridLineMaterial.resolution.copy(resolution);
+  majorGridLineMaterial.resolution.copy(resolution);
   switch (mode) {
     case "2D":
-      return cartesian2D(
-        minorGridLineMaterial,
-        majorGridLineMaterial,
-        visibleCoords,
-        step,
-        cameraPosition
-      );
+      return cartesian2D(visibleCoords, step, cameraPosition);
     case "3D":
-      return cartesian3D(
-        minorGridLineMaterial,
-        majorGridLineMaterial,
-        visibleCoords,
-        step,
-        cameraPosition
-      );
+      return cartesian3D();
   }
 }
 
-function cartesian2D(
-  minorGridLineMaterial,
-  majorGridLineMaterial,
-  visibleCoords,
-  step,
-  cameraPosition
-) {
+function cartesian2D(visibleCoords, step, cameraPosition) {
   const gridGroup = new Group();
 
   const verticalLines = new Group();
@@ -53,24 +48,18 @@ function cartesian2D(
     x += step / 10, iteration++
   ) {
     const verticalPoints = [];
-    verticalPoints.push(new Vector3(x, -visibleCoords.y + cameraPosition.y, 0));
-    verticalPoints.push(new Vector3(x, visibleCoords.y + cameraPosition.y, 0));
+    verticalPoints.push(x, -visibleCoords.y + cameraPosition.y, 0);
+    verticalPoints.push(x, visibleCoords.y + cameraPosition.y, 0);
 
-    const verticalLineGeometry = new BufferGeometry().setFromPoints(
+    const verticalLineGeometry = new LineGeometry().setPositions(
       verticalPoints
     );
 
-    const verticalLine = new MeshLine();
-    verticalLine.setGeometry(verticalLineGeometry);
-
-    let verticalLineMesh;
     if (iteration % 10 === 0) {
-      verticalLineMesh = new Mesh(verticalLine, majorGridLineMaterial);
+      verticalLines.add(new Line2(verticalLineGeometry, majorGridLineMaterial));
     } else {
-      verticalLineMesh = new Mesh(verticalLine, minorGridLineMaterial);
+      verticalLines.add(new Line2(verticalLineGeometry, minorGridLineMaterial));
     }
-
-    verticalLines.add(verticalLineMesh);
   }
   gridGroup.add(verticalLines);
 
@@ -81,28 +70,22 @@ function cartesian2D(
     y += step / 10, iteration++
   ) {
     const horizontalPoints = [];
-    horizontalPoints.push(
-      new Vector3(-visibleCoords.x + cameraPosition.x, y, 0)
-    );
-    horizontalPoints.push(
-      new Vector3(visibleCoords.x + cameraPosition.x, y, 0)
-    );
+    horizontalPoints.push(-visibleCoords.x + cameraPosition.x, y, 0);
+    horizontalPoints.push(visibleCoords.x + cameraPosition.x, y, 0);
 
-    const horizontalLineGeometry = new BufferGeometry().setFromPoints(
+    const horizontalLineGeometry = new LineGeometry().setPositions(
       horizontalPoints
     );
 
-    const horizontalLine = new MeshLine();
-    horizontalLine.setGeometry(horizontalLineGeometry);
-
-    let horizontalLineMesh;
     if (iteration % 10 === 0) {
-      horizontalLineMesh = new Mesh(horizontalLine, majorGridLineMaterial);
+      horizontalLines.add(
+        new Line2(horizontalLineGeometry, majorGridLineMaterial)
+      );
     } else {
-      horizontalLineMesh = new Mesh(horizontalLine, minorGridLineMaterial);
+      horizontalLines.add(
+        new Line2(horizontalLineGeometry, minorGridLineMaterial)
+      );
     }
-
-    horizontalLines.add(horizontalLineMesh);
   }
   gridGroup.add(horizontalLines);
 
@@ -112,12 +95,138 @@ function cartesian2D(
   return new Grid(gridGroup, gridBoundingBox);
 }
 
-function cartesian3D(
-  minorGridLineMaterial,
-  majorGridLineMaterial,
-  visibleCoords,
-  step,
-  cameraPosition
-) {
-  return new Grid(new THREE.AxesHelper(10), null);
+function cartesian3D() {
+  const gridGroup = new Group();
+
+  const length = {
+    x: 10,
+    y: 10,
+    z: 10,
+  };
+
+  const xyLines = new Group();
+  const xzLines = new Group();
+  const yxLines = new Group();
+  const yzLines = new Group();
+  const zxLines = new Group();
+  const zyLines = new Group();
+
+  for (
+    let x = Math.round(-length.x), iteration = -5;
+    x <= length.x;
+    x += Math.round(length.x / 5) / 5, iteration++
+  ) {
+    const xyPoints = [];
+    xyPoints.push(x, -length.y, 0);
+    xyPoints.push(x, length.y, 0);
+
+    const xyLineGeometry = new LineGeometry().setPositions(xyPoints);
+
+    if (iteration % 10 === 0) {
+      xyLines.add(new Line2(xyLineGeometry, majorGridLineMaterial));
+    } else {
+      xyLines.add(new Line2(xyLineGeometry, minorGridLineMaterial));
+    }
+  }
+  gridGroup.add(xyLines);
+
+  for (
+    let x = Math.round(-length.x), iteration = -5;
+    x <= length.x;
+    x += Math.round(length.x / 5) / 5, iteration++
+  ) {
+    const xzPoints = [];
+    xzPoints.push(x, 0, -length.z);
+    xzPoints.push(x, 0, length.z);
+
+    const xzLineGeometry = new LineGeometry().setPositions(xzPoints);
+
+    if (iteration % 10 === 0) {
+      xzLines.add(new Line2(xzLineGeometry, majorGridLineMaterial));
+    } else {
+      xzLines.add(new Line2(xzLineGeometry, minorGridLineMaterial));
+    }
+  }
+  gridGroup.add(xzLines);
+
+  for (
+    let y = -length.y, iteration = -5;
+    y <= length.y;
+    y += Math.round(length.y / 5) / 5, iteration++
+  ) {
+    const yxPoints = [];
+    yxPoints.push(-length.x, y, 0);
+    yxPoints.push(length.x, y, 0);
+
+    const yxLineGeometry = new LineGeometry().setPositions(yxPoints);
+
+    if (iteration % 10 === 0) {
+      yxLines.add(new Line2(yxLineGeometry, majorGridLineMaterial));
+    } else {
+      yxLines.add(new Line2(yxLineGeometry, minorGridLineMaterial));
+    }
+  }
+  gridGroup.add(yxLines);
+
+  for (
+    let y = -length.y, iteration = -5;
+    y <= length.y;
+    y += Math.round(length.y / 5) / 5, iteration++
+  ) {
+    const yzPoints = [];
+    yzPoints.push(0, y, -length.z);
+    yzPoints.push(0, y, length.z);
+
+    const yzLineGeometry = new LineGeometry().setPositions(yzPoints);
+
+    if (iteration % 10 === 0) {
+      yzLines.add(new Line2(yzLineGeometry, majorGridLineMaterial));
+    } else {
+      yzLines.add(new Line2(yzLineGeometry, minorGridLineMaterial));
+    }
+  }
+  gridGroup.add(yzLines);
+
+  for (
+    let z = -length.z, iteration = -5;
+    z <= length.z;
+    z += Math.round(length.z / 5) / 5, iteration++
+  ) {
+    const zxPoints = [];
+    zxPoints.push(-length.x, 0, z);
+    zxPoints.push(length.x, 0, z);
+
+    const zxLineGeometry = new LineGeometry().setPositions(zxPoints);
+
+    if (iteration % 10 === 0) {
+      zxLines.add(new Line2(zxLineGeometry, majorGridLineMaterial));
+    } else {
+      zxLines.add(new Line2(zxLineGeometry, minorGridLineMaterial));
+    }
+  }
+  gridGroup.add(zxLines);
+
+  for (
+    let z = -length.z, iteration = -5;
+    z <= length.z;
+    z += Math.round(length.z / 5) / 5, iteration++
+  ) {
+    const zyPoints = [];
+    zyPoints.push(0, -length.z, z);
+    zyPoints.push(0, length.z, z);
+
+    const zyLineGeometry = new LineGeometry().setPositions(zyPoints);
+
+    if (iteration % 10 === 0) {
+      zyLines.add(new Line2(zyLineGeometry, majorGridLineMaterial));
+    } else {
+      zyLines.add(new Line2(zyLineGeometry, minorGridLineMaterial));
+    }
+  }
+  gridGroup.add(zyLines);
+
+  const gridBoundingBox = new Box3();
+  gridBoundingBox.setFromObject(gridGroup, true);
+
+  return new Grid(gridGroup, gridBoundingBox);
 }

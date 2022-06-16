@@ -32,7 +32,7 @@ export function needsRedraw(
       const redraw = new Redraw();
 
       if (activeGraphs.length) {
-        redraw.graph = true;
+        redraw.graph = false;
       }
       if (!activeGrid) {
         redraw.grid = true;
@@ -53,7 +53,7 @@ function cartesian2D(
   activeGrid,
   activeAxes
 ) {
-  let cameraBox = {
+  const cameraBox = {
     max: new THREE.Vector3(
       visibleCoords.x / 2 + cameraPosition.x,
       visibleCoords.y / 2 + cameraPosition.y,
