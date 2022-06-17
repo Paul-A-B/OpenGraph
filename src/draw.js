@@ -31,9 +31,6 @@ export function needsRedraw(
     case "3D":
       const redraw = new Redraw();
 
-      if (activeGraphs.length) {
-        redraw.graph = false;
-      }
       if (!activeGrid) {
         redraw.grid = true;
       }

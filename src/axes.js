@@ -7,6 +7,7 @@ const axesMaterial = new LineMaterial({
   color: 0x000000,
   worldUnits: false,
   linewidth: 7.5,
+  depthWrite: false,
 });
 
 function Axes(mesh, intersection) {
@@ -69,7 +70,7 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
   );
 
   const verticalAxis = new Line2(verticalAxisGeometry, axesMaterial);
-  verticalAxis.renderOrder = 1;
+  verticalAxis.renderOrder = 2;
 
   axesLinesGroup.add(verticalAxis);
 
@@ -104,7 +105,7 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
   );
 
   const horizontalAxis = new Line2(horizontalAxisGeometry, axesMaterial);
-  horizontalAxis.renderOrder = 1;
+  horizontalAxis.renderOrder = 2;
 
   axesLinesGroup.add(horizontalAxis);
 
@@ -133,7 +134,7 @@ function cartesian3D() {
   );
 
   const verticalAxis = new Line2(verticalAxisGeometry, axesMaterial);
-  verticalAxis.renderOrder = 1;
+  verticalAxis.renderOrder = 2;
 
   axesLinesGroup.add(verticalAxis);
 
@@ -146,7 +147,7 @@ function cartesian3D() {
   );
 
   const horizontalAxis = new Line2(horizontalAxisGeometry, axesMaterial);
-  horizontalAxis.renderOrder = 1;
+  horizontalAxis.renderOrder = 2;
 
   axesLinesGroup.add(horizontalAxis);
 
@@ -159,7 +160,7 @@ function cartesian3D() {
   );
 
   const lateralAxis = new Line2(lateralAxesGeometry, axesMaterial);
-  lateralAxis.renderOrder = 1;
+  lateralAxis.renderOrder = 2;
 
   axesLinesGroup.add(lateralAxis);
 

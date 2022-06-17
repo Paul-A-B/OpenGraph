@@ -6,12 +6,9 @@ import { BufferGeometry } from "three";
 
 const charMaterial = new MeshBasicMaterial({
   color: 0x000000,
-  depthTest: false,
-  depthWrite: false,
 });
 const coordBackgroundMaterial = new MeshBasicMaterial({
   color: 0xffffff,
-  depthTest: false,
   depthWrite: false,
 });
 
@@ -109,7 +106,7 @@ function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
       } else {
         characterMesh.position.y = -charCache[char].offset.y * scale;
       }
-      characterMesh.renderOrder = 2; // rendert es später -> es ist vor dem Hintergrund
+      characterMesh.renderOrder = 4; // rendert es später -> es ist vor dem Hintergrund
       coordMesh.add(characterMesh);
       widthOfPreviousCharacters += (charCache[char].size.width + 0.025) * scale;
     }
@@ -129,7 +126,7 @@ function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
       coordBackgroundGeometry,
       coordBackgroundMaterial
     );
-    coordBackground.renderOrder = 1;
+    coordBackground.renderOrder = 3;
 
     coordBackground.position.x =
       coordBoundingBox.min.x + coordBoundingBoxWidth / 2;
@@ -187,7 +184,7 @@ function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
         } else {
           characterMesh.position.y -= charCache[char].offset.y * scale;
         }
-        characterMesh.renderOrder = 2; // rendert es später -> es ist vor dem Hintergrund
+        characterMesh.renderOrder = 4; // rendert es später -> es ist vor dem Hintergrund
         coordMesh.add(characterMesh);
         widthOfPreviousCharacters +=
           (charCache[char].size.width + 0.025) * scale;
@@ -211,7 +208,7 @@ function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
         coordBackgroundGeometry,
         coordBackgroundMaterial
       );
-      coordBackground.renderOrder = 1;
+      coordBackground.renderOrder = 3;
 
       coordBackground.position.x =
         coordBoundingBox.min.x + coordBoundingBoxWidth / 2;
@@ -262,7 +259,7 @@ function cartesian3D(intersection) {
       } else {
         characterMesh.position.y = -charCache[char].offset.y;
       }
-      characterMesh.renderOrder = 2; // rendert es später -> es ist vor dem Hintergrund
+      characterMesh.renderOrder = 4; // rendert es später -> es ist vor dem Hintergrund
       charGroup.add(characterMesh);
       widthOfPreviousCharacters += charCache[char].size.width + 0.025;
     }
@@ -290,7 +287,7 @@ function cartesian3D(intersection) {
       coordBackgroundGeometry,
       coordBackgroundMaterial
     );
-    coordBackground.renderOrder = 1;
+    coordBackground.renderOrder = 3;
     coordBackground.onBeforeRender = (
       renderer,
       scene,
@@ -332,7 +329,7 @@ function cartesian3D(intersection) {
         } else {
           characterMesh.position.y -= charCache[char].offset.y;
         }
-        characterMesh.renderOrder = 2; // rendert es später -> es ist vor dem Hintergrund
+        characterMesh.renderOrder = 4; // rendert es später -> es ist vor dem Hintergrund
         charGroup.add(characterMesh);
         widthOfPreviousCharacters += charCache[char].size.width + 0.025;
       }
@@ -360,7 +357,7 @@ function cartesian3D(intersection) {
         coordBackgroundGeometry,
         coordBackgroundMaterial
       );
-      coordBackground.renderOrder = 1;
+      coordBackground.renderOrder = 3;
       coordBackground.onBeforeRender = (
         renderer,
         scene,
@@ -401,7 +398,7 @@ function cartesian3D(intersection) {
         } else {
           characterMesh.position.y -= charCache[char].offset.y;
         }
-        characterMesh.renderOrder = 2; // rendert es später -> es ist vor dem Hintergrund
+        characterMesh.renderOrder = 4; // rendert es später -> es ist vor dem Hintergrund
         charGroup.add(characterMesh);
         widthOfPreviousCharacters += charCache[char].size.width + 0.025;
       }
@@ -429,7 +426,7 @@ function cartesian3D(intersection) {
         coordBackgroundGeometry,
         coordBackgroundMaterial
       );
-      coordBackground.renderOrder = 1;
+      coordBackground.renderOrder = 3;
       coordBackground.onBeforeRender = (
         renderer,
         scene,

@@ -7,11 +7,13 @@ const minorGridLineMaterial = new LineMaterial({
   color: 0x454545,
   worldUnits: false,
   linewidth: 2.5,
+  depthWrite: false,
 });
 const majorGridLineMaterial = new LineMaterial({
   color: 0x151515,
   worldUnits: false,
   linewidth: 5,
+  depthWrite: false,
 });
 
 function Grid(mesh, boundingBox) {
@@ -122,11 +124,14 @@ function cartesian3D() {
 
     const xyLineGeometry = new LineGeometry().setPositions(xyPoints);
 
+    let xyLine;
     if (iteration % 10 === 0) {
-      xyLines.add(new Line2(xyLineGeometry, majorGridLineMaterial));
+      xyLine = new Line2(xyLineGeometry, majorGridLineMaterial);
     } else {
-      xyLines.add(new Line2(xyLineGeometry, minorGridLineMaterial));
+      xyLine = new Line2(xyLineGeometry, minorGridLineMaterial);
     }
+    xyLine.renderOrder = 1;
+    xyLines.add(xyLine);
   }
   gridGroup.add(xyLines);
 
@@ -141,11 +146,14 @@ function cartesian3D() {
 
     const xzLineGeometry = new LineGeometry().setPositions(xzPoints);
 
+    let xzLine;
     if (iteration % 10 === 0) {
-      xzLines.add(new Line2(xzLineGeometry, majorGridLineMaterial));
+      xzLine = new Line2(xzLineGeometry, majorGridLineMaterial);
     } else {
-      xzLines.add(new Line2(xzLineGeometry, minorGridLineMaterial));
+      xzLine = new Line2(xzLineGeometry, minorGridLineMaterial);
     }
+    xzLine.renderOrder = 1;
+    xzLines.add(xzLine);
   }
   gridGroup.add(xzLines);
 
@@ -160,11 +168,14 @@ function cartesian3D() {
 
     const yxLineGeometry = new LineGeometry().setPositions(yxPoints);
 
+    let yxLine;
     if (iteration % 10 === 0) {
-      yxLines.add(new Line2(yxLineGeometry, majorGridLineMaterial));
+      yxLine = new Line2(yxLineGeometry, majorGridLineMaterial);
     } else {
-      yxLines.add(new Line2(yxLineGeometry, minorGridLineMaterial));
+      yxLine = new Line2(yxLineGeometry, minorGridLineMaterial);
     }
+    yxLine.renderOrder = 1;
+    yxLines.add(yxLine);
   }
   gridGroup.add(yxLines);
 
@@ -179,11 +190,14 @@ function cartesian3D() {
 
     const yzLineGeometry = new LineGeometry().setPositions(yzPoints);
 
+    let yzLine;
     if (iteration % 10 === 0) {
-      yzLines.add(new Line2(yzLineGeometry, majorGridLineMaterial));
+      yzLine = new Line2(yzLineGeometry, majorGridLineMaterial);
     } else {
-      yzLines.add(new Line2(yzLineGeometry, minorGridLineMaterial));
+      yzLine = new Line2(yzLineGeometry, minorGridLineMaterial);
     }
+    yzLine.renderOrder = 1;
+    yzLines.add(yzLine);
   }
   gridGroup.add(yzLines);
 
@@ -198,11 +212,14 @@ function cartesian3D() {
 
     const zxLineGeometry = new LineGeometry().setPositions(zxPoints);
 
+    let zxLine;
     if (iteration % 10 === 0) {
-      zxLines.add(new Line2(zxLineGeometry, majorGridLineMaterial));
+      zxLine = new Line2(zxLineGeometry, majorGridLineMaterial);
     } else {
-      zxLines.add(new Line2(zxLineGeometry, minorGridLineMaterial));
+      zxLine = new Line2(zxLineGeometry, minorGridLineMaterial);
     }
+    zxLine.renderOrder = 1;
+    zxLines.add(zxLine);
   }
   gridGroup.add(zxLines);
 
@@ -217,11 +234,14 @@ function cartesian3D() {
 
     const zyLineGeometry = new LineGeometry().setPositions(zyPoints);
 
+    let zyLine;
     if (iteration % 10 === 0) {
-      zyLines.add(new Line2(zyLineGeometry, majorGridLineMaterial));
+      zyLine = new Line2(zyLineGeometry, majorGridLineMaterial);
     } else {
-      zyLines.add(new Line2(zyLineGeometry, minorGridLineMaterial));
+      zyLine = new Line2(zyLineGeometry, minorGridLineMaterial);
     }
+    zyLine.renderOrder = 1;
+    zyLines.add(zyLine);
   }
   gridGroup.add(zyLines);
 

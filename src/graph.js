@@ -7,13 +7,146 @@ const graph2DMaterial = new LineMaterial({
   color: 0x062596,
   worldUnits: false,
   linewidth: 10,
-  depthTest: false,
-  depthWrite: false,
 });
 const graph3DMaterial = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
   vertexColors: true,
+  // wireframe: true,
+  // color: 0xff0000,
 });
+
+const scope = {};
+
+function generateScope(statement) {
+  if (statement.fnNode.isFunctionAssignmentNode) {
+    for (const variable of statement.fnNode.params) {
+      scope[variable] = undefined;
+    }
+    statement.fnNode = statement.fnNode.expr;
+  } else {
+    for (const variable of statement.fnNode.filter((node, path, parent) => {
+      if (parent) {
+        return node.isSymbolNode && !(parent.fn === node);
+      } else {
+        return node.isSymbolNode;
+      }
+    })) {
+      try {
+        variable.evaluate();
+      } catch (error) {
+        scope[variable] = undefined;
+      }
+    }
+  }
+
+  if (statement.usesTime) {
+    scope.t = Math.sin(Date.now() / 10000) * 2 * Math.PI;
+  }
+}
+
+function Dimensions(input, output) {
+  this.input = input;
+  this.output = output;
+}
+
+function generateDimensions(possibleDimensions) {
+  const inputDimensions = Object.keys(scope).filter((variable) =>
+    possibleDimensions.includes(variable)
+  );
+
+  const outputDimensions = possibleDimensions.filter(
+    (variable) => !inputDimensions.includes(variable)
+  );
+
+  while (outputDimensions.length > 1) {
+    inputDimensions.push(outputDimensions.shift());
+  }
+
+  if (outputDimensions.length === 1) {
+    return new Dimensions(inputDimensions, outputDimensions);
+  } else {
+    throw new Error("Die Eingabe kann nicht alle Axen enthalten.");
+  }
+}
+
+const colorFactor = {
+  from: {
+    r: 0.314,
+    g: 0.42,
+    b: 0.69,
+  },
+  to: {
+    r: 0.97,
+    g: 0.78,
+    b: 0.89,
+  },
+};
+
+const graphPoints = [];
+const graphColors = [];
+const graphIndices = [];
+
+const point = {
+  x: 0,
+  y: 0,
+  z: 0,
+};
+
+let iterations = 0;
+
+function calculatePoints(
+  statement,
+  dimensions,
+  size,
+  offset,
+  precision,
+  dimensionCount = 1
+) {
+  if (!dimensions.input.length) {
+    point[dimensions.output[0]] = statement.fnNode.evaluate(scope);
+    if (Number.isFinite(point[dimensions.output[0]])) {
+      graphPoints.push(point.x, point.y, point.z);
+
+      if (dimensionCount === 3) {
+        graphColors.push(
+          colorFactor.from.r +
+            ((size[dimensions.output[0]] + point[dimensions.output[0]]) /
+              (size[dimensions.output[0]] * 2)) *
+              (colorFactor.to.r - colorFactor.from.r),
+          colorFactor.from.g +
+            ((size[dimensions.output[0]] + point[dimensions.output[0]]) /
+              (size[dimensions.output[0]] * 2)) *
+              (colorFactor.to.g - colorFactor.from.g),
+          colorFactor.from.b +
+            ((size[dimensions.output[0]] + point[dimensions.output[0]]) /
+              (size[dimensions.output[0]] * 2)) *
+              (colorFactor.to.b - colorFactor.from.b)
+        );
+      }
+    }
+    return;
+  }
+
+  const variable = dimensions.input[0];
+  iterations = 0;
+  for (
+    let variableValue = -size[variable] + offset[variable];
+    variableValue <= size[variable] + offset[variable];
+    variableValue += size[variable] / precision
+  ) {
+    iterations++;
+    scope[variable] = variableValue;
+    point[variable] = variableValue;
+    calculatePoints(
+      statement,
+      new Dimensions(dimensions.input.slice(1), dimensions.output),
+      size,
+      offset,
+      precision,
+      dimensionCount + 1
+    );
+  }
+}
 
 function Graph(statement, mesh, boundingBox) {
   this.statement = statement;
@@ -29,184 +162,106 @@ export function generateGraph(
   cameraPosition,
   canvas
 ) {
+  graphPoints.length = 0;
+  graphColors.length = 0;
+  graphIndices.length = 0;
+
+  point.x = 0;
+  point.y = 0;
+  point.z = 0;
+
+  for (const variable in scope) {
+    delete scope[variable];
+  }
+
   graph2DMaterial.resolution.copy(resolution);
+  generateScope(statement);
   switch (mode) {
     case "2D":
       return cartesian2D(statement, visibleCoords, cameraPosition, canvas);
     case "3D":
-      return cartesian3D(statement, graph3DMaterial);
+      return cartesian3D(statement);
   }
 }
 
 function cartesian2D(statement, visibleCoords, cameraPosition, canvas) {
-  const graphPoints = [];
+  const dimensions = generateDimensions(["x", "y"]);
 
-  const scope = {};
-
-  if (statement.fnNode.isFunctionAssignmentNode) {
-    for (const variable of statement.fnNode.params) {
-      scope[variable] = undefined;
-    }
-    statement.fnNode = statement.fnNode.expr;
-  } else {
-    for (const variable of statement.fnNode.filter((node, path, parent) => {
-      if (parent) {
-        return node.isSymbolNode && !(parent.fn === node);
-      } else {
-        return node.isSymbolNode;
-      }
-    })) {
-      try {
-        variable.evaluate();
-      } catch (error) {
-        scope[variable] = undefined;
-      }
-    }
-  }
-
-  if (statement.usesTime) {
-    scope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
-  }
-
-  for (
-    let x = -visibleCoords.x + cameraPosition.x;
-    x <= visibleCoords.x + cameraPosition.x;
-    x += visibleCoords.x / canvas.width
-  ) {
-    scope.x = x;
-    const point = { x: x, y: statement.fnNode.evaluate(scope), z: 0 };
-    if (Number.isFinite(point.y)) graphPoints.push(point.x, point.y, point.z);
-  }
+  calculatePoints(
+    statement,
+    dimensions,
+    visibleCoords,
+    cameraPosition,
+    canvas.width
+  );
 
   const graphGeometry = new LineGeometry().setPositions(graphPoints);
 
   const graphLine = new Line2(graphGeometry, graph2DMaterial);
-  graphLine.renderOrder = 3; // rendert über Grid und Beschriftung
+  graphLine.renderOrder = 5; // rendert über Grid und Beschriftung
   graphLine.geometry.computeBoundingBox();
 
   const graphBoundingBox = new THREE.Box3();
-  graphBoundingBox
-    .copy(graphLine.geometry.boundingBox)
-    .applyMatrix4(graphLine.matrixWorld);
+  graphBoundingBox.setFromObject(graphLine);
 
   return new Graph(statement, graphLine, graphBoundingBox);
 }
 
-function cartesian3D(statement, graphMaterial) {
-  const graphPoints = [];
-  const graphColors = [];
-  const graphIndices = [];
-
+function cartesian3D(statement) {
   const length = {
     x: 10,
     y: 10,
     z: 10,
   };
-
-  const scope = {};
-
-  if (statement.fnNode.isFunctionAssignmentNode) {
-    for (const variable of statement.fnNode.params) {
-      scope[variable] = undefined;
-    }
-    statement.fnNode = statement.fnNode.expr;
-  } else {
-    for (const variable of statement.fnNode.filter((node, path, parent) => {
-      if (parent) {
-        return node.isSymbolNode && !(parent.fn === node);
-      } else {
-        return node.isSymbolNode;
-      }
-    })) {
-      try {
-        variable.evaluate();
-      } catch (error) {
-        scope[variable] = undefined;
-      }
-    }
-  }
-
-  if (statement.usesTime) {
-    scope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
-  }
-
-  const colorFactor = {
-    from: {
-      r: 0.314,
-      g: 0.42,
-      b: 0.69,
-    },
-    to: {
-      r: 0.97,
-      g: 0.78,
-      b: 0.89,
-    },
+  const offset = {
+    x: 0,
+    y: 0,
+    z: 0,
   };
+  const precision = 100;
 
-  const precision = 50;
+  const dimensions = generateDimensions(["x", "y", "z"]);
 
-  const segments = 2 * precision; // nur eine Achse, müsste man ausbauen
+  const graphGroup = new THREE.Group();
 
-  for (let x = -length.x; x <= length.x; x += length.x / precision) {
-    scope.x = x;
-    for (let y = -length.y; y <= length.y; y += length.y / precision) {
-      scope.y = y;
-      const point = { x: x, y: y, z: statement.fnNode.evaluate(scope) };
-      if (Number.isFinite(point.z)) {
-        graphPoints.push(point.x, point.y, point.z);
-        graphColors.push(
-          colorFactor.from.r +
-            ((length.z + point.z) / (length.z * 2)) *
-              (colorFactor.to.r - colorFactor.from.r),
-          colorFactor.from.g +
-            ((length.z + point.z) / (length.z * 2)) *
-              (colorFactor.to.g - colorFactor.from.g),
-          colorFactor.from.b +
-            ((length.z + point.z) / (length.z * 2)) *
-              (colorFactor.to.b - colorFactor.from.b)
-        );
+  calculatePoints(statement, dimensions, length, offset, precision);
+
+  if (graphPoints.length) {
+    const segments = iterations - 1;
+
+    for (let i = 0; i < segments; i++) {
+      for (let j = 0; j < segments; j++) {
+        const a = i * (segments + 1) + (j + 1);
+        const b = i * (segments + 1) + j;
+        const c = (i + 1) * (segments + 1) + (j + 1);
+        const d = (i + 1) * (segments + 1) + j;
+
+        graphIndices.push(a, b, d);
+        graphIndices.push(c, a, d);
       }
     }
+
+    const graphGeometry = new THREE.BufferGeometry();
+
+    graphGeometry.setIndex(graphIndices);
+    graphGeometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(graphPoints, 3)
+    );
+    graphGeometry.computeVertexNormals();
+    graphGeometry.setAttribute(
+      "color",
+      new THREE.Float32BufferAttribute(graphColors, 3)
+    );
+
+    const graphMesh = new THREE.Mesh(graphGeometry, graph3DMaterial);
+    graphMesh.renderOrder = 0; // rendert über Grid und Beschriftung
+
+    graphGroup.add(graphMesh);
   }
-  for (let i = 0; i < segments; i++) {
-    for (let j = 0; j < segments; j++) {
-      const a = i * (segments + 1) + (j + 1);
-      const b = i * (segments + 1) + j;
-      const c = (i + 1) * (segments + 1) + (j + 1);
-      const d = (i + 1) * (segments + 1) + j;
-
-      graphIndices.push(a, b, d);
-      graphIndices.push(c, a, d);
-    }
-  }
-
-  const graphGeometry = new THREE.BufferGeometry();
-
-  graphGeometry.setIndex(graphIndices);
-  graphGeometry.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute(graphPoints, 3)
-  );
-  graphGeometry.computeVertexNormals();
-  graphGeometry.setAttribute(
-    "color",
-    new THREE.Float32BufferAttribute(graphColors, 3)
-  );
-
-  // const wireframe = new THREE.WireframeGeometry(graphGeometry);
-
-  // const graphMesh = new THREE.LineSegments(wireframe);
-  // graphMesh.material.depthTest = false;
-  // graphMesh.material.setValues({ color: 0x000000 });
-
-  const graphMesh = new THREE.Mesh(graphGeometry, graphMaterial);
-  graphMesh.renderOrder = 3; // rendert über Grid und Beschriftung
-  graphMesh.geometry.computeBoundingBox();
 
   const graphBoundingBox = new THREE.Box3();
-  graphBoundingBox
-    .copy(graphMesh.geometry.boundingBox)
-    .applyMatrix4(graphMesh.matrixWorld);
+  graphBoundingBox.setFromObject(graphGroup);
 
-  return new Graph(statement, graphMesh, graphBoundingBox);
+  return new Graph(statement, graphGroup, graphBoundingBox);
 }

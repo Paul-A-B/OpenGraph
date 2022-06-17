@@ -17,7 +17,13 @@ function init() {
   const textIOArea = document.getElementById("text-io");
   const select = document.getElementById("mode-selection");
 
-  const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    antialias: true,
+    stencil: false,
+    alpha: false,
+    powerPreference: "high-performance",
+  });
   renderer.setSize(
     (window.innerWidth - textIOArea.getBoundingClientRect().width) *
       window.devicePixelRatio,
@@ -88,9 +94,7 @@ function init() {
 
   const visibleCoords = { x: undefined, y: undefined };
 
-  let stepX = Math.pow(2, Math.floor(Math.log2(visibleCoords.x) - 1));
-  let stepY = Math.pow(2, Math.floor(Math.log2(visibleCoords.y) - 1));
-  let step = Math.min(stepX, stepY);
+  let stepX, stepY, step;
 
   const resolution = new THREE.Vector2(canvas.width, canvas.height);
 
@@ -170,6 +174,7 @@ function init() {
     } catch (error) {
       outputError(input, error);
     }
+    renderer.render(scene, camera);
   }
 
   function plotGraph(statement) {
@@ -227,7 +232,6 @@ function init() {
   updateView();
 
   select.addEventListener("change", () => {
-    activeGraphs.length = 0;
     activeGrid = null;
     activeAxes = null;
 
@@ -238,11 +242,13 @@ function init() {
 
     switch (select.value) {
       case "2D":
+        scene.background = new THREE.Color(0xffffff);
         camera.position.set(0, 0, 25);
         camera.up.set(0, 1, 0);
         controls.enableRotate = false;
         break;
       case "3D":
+        scene.background = new THREE.Color(0x999999);
         camera.position.set(25, 25, 12.5);
         camera.up.set(0, 0, 1);
         controls.enableRotate = true;
@@ -253,15 +259,20 @@ function init() {
     controls.update();
 
     updateView();
+
+    if (activeGraphs[0]) {
+      plotGraph(activeGraphs[0].statement);
+      renderer.render(scene, camera);
+    }
   });
 
   function animate() {
     if (activeGraphs[0]) {
       if (activeGraphs[0].statement.usesTime) {
         plotGraph(activeGraphs[0].statement);
+        renderer.render(scene, camera);
       }
     }
-    renderer.render(scene, camera);
 
     requestAnimationFrame(animate);
   }
