@@ -6,7 +6,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 const graph2DMaterial = new LineMaterial({
   color: 0x062596,
   worldUnits: false,
-  linewidth: 10,
+  linewidth: 5,
 });
 const graph3DMaterial = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
@@ -82,15 +82,13 @@ const colorFactor = {
   },
 };
 
+const graphGroup = new THREE.Group();
+
 const graphPoints = [];
 const graphColors = [];
 const graphIndices = [];
 
-const point = {
-  x: 0,
-  y: 0,
-  z: 0,
-};
+const point = new THREE.Vector3();
 
 let iterations = 0;
 
@@ -104,7 +102,105 @@ function calculatePoints(
 ) {
   if (!dimensions.input.length) {
     point[dimensions.output[0]] = statement.fnNode.evaluate(scope);
-    if (Number.isFinite(point[dimensions.output[0]])) {
+    let continuous = true;
+
+    if (dimensionCount === 2) {
+      if (graphPoints.length >= 3) {
+        const lastPoint = new THREE.Vector3(
+          graphPoints[graphPoints.length - 3],
+          graphPoints[graphPoints.length - 2],
+          graphPoints[graphPoints.length - 1]
+        );
+
+        // https://patents.google.com/patent/US6704013B2/en
+        const angle = point.angleTo(lastPoint);
+        const scopeBackup = {};
+        for (const variable in scope) {
+          scopeBackup[variable] = scope[variable];
+        }
+        const pointBackup = {};
+        for (const variable in point) {
+          pointBackup[variable] = point[variable];
+        }
+        if (
+          angle > Math.PI / 4 &&
+          Math.round((angle + Number.EPSILON) * 100) / 100 !=
+            Math.round((Math.PI + Number.EPSILON) * 100) / 100
+        ) {
+          continuous = false;
+          const variables = Object.keys(scope);
+
+          for (let i = 0; i < 10; i++) {
+            const inputDifference =
+              Math.max(lastPoint[variables[0]], point[variables[0]]) -
+              Math.min(lastPoint[variables[0]], point[variables[0]]);
+            const midPoint = new THREE.Vector3(point.x, point.y, point.z);
+            scope[variables[0]] =
+              Math.max(lastPoint[variables[0]], point[variables[0]]) -
+              inputDifference / 2;
+            midPoint[variables[0]] = scope[variables[0]];
+            midPoint[dimensions.output[0]] = statement.fnNode.evaluate(scope);
+
+            if (
+              Math.min(
+                lastPoint[dimensions.output[0]],
+                point[dimensions.output[0]]
+              ) <= midPoint[dimensions.output[0]] &&
+              midPoint[dimensions.output[0]] <=
+                Math.max(
+                  lastPoint[dimensions.output[0]],
+                  point[dimensions.output[0]]
+                )
+            ) {
+              continuous = true;
+              return;
+            }
+
+            const sectionsOutputDifference = {
+              lastMid:
+                Math.max(
+                  lastPoint[dimensions.output[0]],
+                  midPoint[dimensions.output[0]]
+                ) -
+                Math.min(
+                  lastPoint[dimensions.output[0]],
+                  midPoint[dimensions.output[0]]
+                ),
+              midNew:
+                Math.max(
+                  point[dimensions.output[0]],
+                  midPoint[dimensions.output[0]]
+                ) -
+                Math.min(
+                  point[dimensions.output[0]],
+                  midPoint[dimensions.output[0]]
+                ),
+            };
+
+            if (
+              sectionsOutputDifference.lastMid > sectionsOutputDifference.midNew
+            ) {
+              point.copy(midPoint);
+            } else {
+              lastPoint.copy(midPoint);
+            }
+          }
+          for (const variable in scopeBackup) {
+            scope[variable] = scopeBackup[variable];
+          }
+          for (const variable in point) {
+            point[variable] = pointBackup[variable];
+          }
+        }
+      }
+    }
+
+    if (
+      Number.isFinite(point[dimensions.output[0]]) &&
+      // point[dimensions.output[0]] <= size[dimensions.output[0]] &&
+      // point[dimensions.output[0]] >= -size[dimensions.output[0]] &&
+      continuous
+    ) {
       graphPoints.push(point.x, point.y, point.z);
 
       if (dimensionCount === 3) {
@@ -122,6 +218,17 @@ function calculatePoints(
               (size[dimensions.output[0]] * 2)) *
               (colorFactor.to.b - colorFactor.from.b)
         );
+      }
+    } else {
+      if (graphPoints.length) {
+        if (dimensionCount === 2) {
+          const graphGeometry = new LineGeometry().setPositions(graphPoints);
+          const graphLine = new Line2(graphGeometry, graph2DMaterial);
+          graphLine.renderOrder = 5; // rendert über Grid und Beschriftung
+          graphLine.geometry.computeBoundingBox();
+          graphGroup.add(graphLine);
+          graphPoints.length = 0;
+        }
       }
     }
     return;
@@ -162,13 +269,13 @@ export function generateGraph(
   cameraPosition,
   canvas
 ) {
+  graphGroup.clear();
+
   graphPoints.length = 0;
   graphColors.length = 0;
   graphIndices.length = 0;
 
-  point.x = 0;
-  point.y = 0;
-  point.z = 0;
+  point.set(0, 0, 0);
 
   for (const variable in scope) {
     delete scope[variable];
@@ -187,42 +294,35 @@ export function generateGraph(
 function cartesian2D(statement, visibleCoords, cameraPosition, canvas) {
   const dimensions = generateDimensions(["x", "y"]);
 
-  calculatePoints(
-    statement,
-    dimensions,
-    visibleCoords,
-    cameraPosition,
-    canvas.width
-  );
+  if (dimensions.input[0] === "x") {
+    canvas = canvas.width;
+  } else {
+    canvas = canvas.height;
+  }
 
-  const graphGeometry = new LineGeometry().setPositions(graphPoints);
+  calculatePoints(statement, dimensions, visibleCoords, cameraPosition, canvas);
 
-  const graphLine = new Line2(graphGeometry, graph2DMaterial);
-  graphLine.renderOrder = 5; // rendert über Grid und Beschriftung
-  graphLine.geometry.computeBoundingBox();
+  if (graphPoints.length) {
+    const graphGeometry = new LineGeometry().setPositions(graphPoints);
 
+    const graphLine = new Line2(graphGeometry, graph2DMaterial);
+    graphLine.renderOrder = 5; // rendert über Grid und Beschriftung
+    graphLine.geometry.computeBoundingBox();
+
+    graphGroup.add(graphLine);
+  }
   const graphBoundingBox = new THREE.Box3();
-  graphBoundingBox.setFromObject(graphLine);
+  graphBoundingBox.setFromObject(graphGroup);
 
-  return new Graph(statement, graphLine, graphBoundingBox);
+  return new Graph(statement, graphGroup, graphBoundingBox);
 }
 
 function cartesian3D(statement) {
-  const length = {
-    x: 10,
-    y: 10,
-    z: 10,
-  };
-  const offset = {
-    x: 0,
-    y: 0,
-    z: 0,
-  };
+  const length = new THREE.Vector3(10, 10, 10);
+  const offset = new THREE.Vector3(0, 0, 0);
   const precision = 100;
 
   const dimensions = generateDimensions(["x", "y", "z"]);
-
-  const graphGroup = new THREE.Group();
 
   calculatePoints(statement, dimensions, length, offset, precision);
 

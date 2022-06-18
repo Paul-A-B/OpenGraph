@@ -1,4 +1,4 @@
-import { Group } from "three";
+import { Group, Vector2, Vector3 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -34,10 +34,7 @@ export function generateAxes(
 function cartesian2D(visibleCoords, step, cameraPosition) {
   const axesLinesGroup = new Group();
 
-  const intersection = {
-    x: undefined,
-    y: undefined,
-  };
+  const intersection = new Vector2();
 
   if (-visibleCoords.x / 2 + cameraPosition.x + step / 5 >= 0) {
     intersection.x =
@@ -119,11 +116,7 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
 function cartesian3D() {
   const axesLinesGroup = new Group();
 
-  const length = {
-    x: 10,
-    y: 10,
-    z: 10,
-  };
+  const length = new Vector3(10, 10, 10);
 
   const verticalAxesPoints = [];
   verticalAxesPoints.push(0, -length.y, 0);
@@ -168,5 +161,5 @@ function cartesian3D() {
 
   axesGroup.add(axesLinesGroup);
 
-  return new Axes(axesGroup, { x: 0, y: 0, z: 0 });
+  return new Axes(axesGroup, new Vector3());
 }

@@ -1,4 +1,4 @@
-import { Group, Box3 } from "three";
+import { Group, Box3, Vector3 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -100,11 +100,7 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
 function cartesian3D() {
   const gridGroup = new Group();
 
-  const length = {
-    x: 10,
-    y: 10,
-    z: 10,
-  };
+  const length = new Vector3(10, 10, 10);
 
   const xyLines = new Group();
   const xzLines = new Group();

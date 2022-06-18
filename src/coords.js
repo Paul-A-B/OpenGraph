@@ -45,10 +45,10 @@ function addToCharCache(char) {
         characterGeometry.boundingBox.max.y -
         characterGeometry.boundingBox.min.y,
     },
-    {
-      x: characterGeometry.boundingBox.min.x,
-      y: characterGeometry.boundingBox.min.y,
-    }
+    new THREE.Vector2(
+      characterGeometry.boundingBox.min.x,
+      characterGeometry.boundingBox.min.y
+    )
   );
 }
 
@@ -234,11 +234,7 @@ function cartesian3D(intersection) {
   const horizontalCoordGroup = new Group();
   const lateralCoordGroup = new Group();
 
-  const length = {
-    x: 10,
-    y: 10,
-    z: 10,
-  };
+  const length = new THREE.Vector3(10, 10, 10);
 
   for (let x = -length.x; x <= length.x; x += Math.round(length.x / 5)) {
     const coordMesh = new Group();

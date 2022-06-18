@@ -50,18 +50,18 @@ function cartesian2D(
   activeGrid,
   activeAxes
 ) {
-  const cameraBox = {
-    max: new THREE.Vector3(
-      visibleCoords.x / 2 + cameraPosition.x,
-      visibleCoords.y / 2 + cameraPosition.y,
-      0
-    ),
-    min: new THREE.Vector3(
+  const cameraBox = new THREE.Box3(
+    new THREE.Vector3(
       -visibleCoords.x / 2 + cameraPosition.x,
       -visibleCoords.y / 2 + cameraPosition.y,
       0
     ),
-  };
+    new THREE.Vector3(
+      visibleCoords.x / 2 + cameraPosition.x,
+      visibleCoords.y / 2 + cameraPosition.y,
+      0
+    )
+  );
 
   const redraw = new Redraw();
 

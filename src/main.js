@@ -92,7 +92,7 @@ function init() {
     return height * camera.aspect;
   };
 
-  const visibleCoords = { x: undefined, y: undefined };
+  const visibleCoords = new THREE.Vector2();
 
   let stepX, stepY, step;
 
@@ -200,8 +200,10 @@ function init() {
   controls.addEventListener("change", updateView);
 
   function updateView() {
-    visibleCoords.x = visibleWidthAtZDepth(camera.position.z, camera) / 2;
-    visibleCoords.y = visibleHeightAtZDepth(camera.position.z, camera) / 2;
+    visibleCoords.set(
+      visibleWidthAtZDepth(camera.position.z, camera) / 2,
+      visibleHeightAtZDepth(camera.position.z, camera) / 2
+    );
 
     stepX = Math.pow(2, Math.floor(Math.log2(visibleCoords.x) - 1));
     stepY = Math.pow(2, Math.floor(Math.log2(visibleCoords.y) - 1));
@@ -235,10 +237,7 @@ function init() {
     activeGrid = null;
     activeAxes = null;
 
-    for (let i = scene.children.length - 1; i >= 0; i--) {
-      const obj = scene.children[i];
-      scene.remove(obj);
-    }
+    scene.clear();
 
     switch (select.value) {
       case "2D":
