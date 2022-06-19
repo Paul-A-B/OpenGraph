@@ -1,5 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap");
 
+* {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
@@ -27,10 +31,23 @@ main {
   padding: 0.5em;
 }
 
+#mode-selection {
+  display: block;
+  margin-bottom: 0.5em;
+}
+
 #text-io input {
   font-family: "IBM Plex Mono", monospace;
   font-size: 1.25em;
-  width: 75%;
+  width: 100%;
   display: inline-block;
   margin-bottom: 0.5em;
+}
+
+#text-io .output {
+  margin-bottom: 0.5em;
+}
+
+#count {
+  width: 50% !important;
 }

@@ -7,6 +7,7 @@ import { generateGrid } from "./grid";
 import { outputError, outputText } from "./textOutput";
 import { generateGraph } from "./graph";
 import { needsRedraw } from "./draw";
+import { initInputFields } from "./inputField";
 
 window.addEventListener("load", init);
 
@@ -100,7 +101,13 @@ function init() {
 
   let activeGrid;
   function drawGrid() {
-    if (activeGrid) scene.remove(activeGrid.mesh);
+    if (activeGrid) {
+      activeGrid.mesh.traverse((object) => {
+        if (object.material) object.material.dispose();
+        if (object.geometry) object.geometry.dispose();
+      });
+      scene.remove(activeGrid.mesh);
+    }
 
     activeGrid = generateGrid(
       select.value,
@@ -117,7 +124,13 @@ function init() {
 
   let activeAxes;
   function drawAxes() {
-    if (activeAxes) scene.remove(activeAxes.mesh);
+    if (activeAxes) {
+      activeAxes.mesh.traverse((object) => {
+        if (object.material) object.material.dispose();
+        if (object.geometry) object.geometry.dispose();
+      });
+      scene.remove(activeAxes.mesh);
+    }
 
     activeAxes = generateAxes(
       select.value,
@@ -141,60 +154,139 @@ function init() {
 
   const math = create(all, {});
 
-  const inputArea = document.getElementById("input");
+  function Input(htmlElement, statement, graph) {
+    this.owner = htmlElement;
+    this.statement = statement;
+    this.graph = graph;
+  }
 
-  inputArea.addEventListener("input", takeInput);
-
-  function Statement(fnNode) {
-    this.fnNode = fnNode;
-    this.usesTime = fnNode.filter((node) => {
+  function Statement(mathNode) {
+    if (mathNode.isFunctionAssignmentNode) {
+      this.mathNode = mathNode.expr;
+    } else {
+      this.mathNode = mathNode;
+    }
+    this.scope = generateScope(mathNode);
+    this.usesTime = mathNode.filter((node) => {
       return node.isSymbolNode && node.name == "t";
     }).length;
   }
 
-  const activeGraphs = [];
-  function takeInput() {
-    const input = inputArea.value;
-    try {
-      if (activeGraphs[0]) {
-        scene.remove(activeGraphs[0].mesh);
-        activeGraphs.shift();
+  function generateScope(mathNode) {
+    const scope = {};
+
+    if (mathNode.isFunctionAssignmentNode) {
+      for (const variable of mathNode.params) {
+        scope[variable] = undefined;
+      }
+    } else {
+      for (const variable of mathNode.filter((node, path, parent) => {
+        if (parent) {
+          return node.isSymbolNode && !(parent.fn === node);
+        } else {
+          return node.isSymbolNode;
+        }
+      })) {
+        if (!scope[variable]) {
+          try {
+            variable.evaluate();
+          } catch (error) {
+            scope[variable] = undefined;
+          }
+        }
+      }
+    }
+
+    return scope;
+  }
+
+  initInputFields(textIOArea, takeInput);
+
+  const globalScope = {};
+  const activeInputs = [];
+  function takeInput(event) {
+    const inputText = event.target.value;
+
+    if (!inputText) {
+      const oldInput = activeInputs.filter((existingInput) => {
+        return existingInput.owner === event.target;
+      })[0];
+
+      if (oldInput) {
+        oldInput.graph.mesh.traverse((object) => {
+          if (object.material) object.material.dispose();
+          if (object.geometry) object.geometry.dispose();
+        });
+        scene.remove(oldInput.graph.mesh);
       }
 
-      const mathNode = math.parse(input);
-      outputText(input, mathNode);
+      activeInputs.splice(activeInputs.indexOf(oldInput), 1);
+    }
+
+    const outputArea =
+      event.target.parentNode.getElementsByClassName("output")[0];
+    try {
+      const mathNode = math.parse(inputText);
+      outputText(inputText, mathNode, outputArea);
 
       if (mathNode.isAssignmentNode) {
-        scope[mathNode.name] = mathNode.value;
+        globalScope[mathNode.name] = mathNode.value.evaluate(globalScope);
+        return;
       }
 
-      if (input) {
-        plotGraph(new Statement(mathNode));
+      if (inputText) {
+        plotGraph(new Input(event.target, new Statement(mathNode)));
       }
     } catch (error) {
-      outputError(input, error);
+      outputError(inputText, error, outputArea);
     }
     renderer.render(scene, camera);
   }
 
-  function plotGraph(statement) {
-    if (activeGraphs[0]) {
-      scene.remove(activeGraphs[0].mesh);
-      activeGraphs.shift();
-    }
+  function plotGraph(input) {
+    const oldInput = activeInputs.filter((existingInput) => {
+      return existingInput.owner === input.owner;
+    })[0];
 
-    activeGraphs.push(
-      generateGraph(
+    if (oldInput) {
+      oldInput.graph.mesh.traverse((object) => {
+        if (object.material) object.material.dispose();
+        if (object.geometry) object.geometry.dispose();
+      });
+      scene.remove(oldInput.graph.mesh);
+
+      oldInput.statement = input.statement;
+
+      oldInput.graph = generateGraph(
         select.value,
+        globalScope,
         resolution,
-        statement,
+        input.statement,
         visibleCoords,
         camera.position,
         canvas
-      )
-    );
+      );
 
-    scene.add(activeGraphs[activeGraphs.length - 1].mesh);
+      scene.add(oldInput.graph.mesh);
+    } else {
+      activeInputs.push(
+        new Input(
+          input.owner,
+          input.statement,
+          generateGraph(
+            select.value,
+            globalScope,
+            resolution,
+            input.statement,
+            visibleCoords,
+            camera.position,
+            canvas
+          )
+        )
+      );
+
+      scene.add(activeInputs[activeInputs.length - 1].graph.mesh);
+    }
   }
 
   controls.addEventListener("change", updateView);
@@ -214,14 +306,17 @@ function init() {
       visibleCoords,
       step,
       camera.position,
-      activeGraphs,
+      activeInputs,
       activeGrid,
       activeAxes
     );
 
-    if (redraw.graph) {
-      plotGraph(activeGraphs[0].statement);
+    for (let i = 0; i < activeInputs.length; i++) {
+      if (redraw.graph[i]) {
+        plotGraph(activeInputs[i]);
+      }
     }
+
     if (redraw.grid) {
       drawGrid();
     }
@@ -259,16 +354,18 @@ function init() {
 
     updateView();
 
-    if (activeGraphs[0]) {
-      plotGraph(activeGraphs[0].statement);
+    for (const activeInput of activeInputs) {
+      plotGraph(activeInput);
       renderer.render(scene, camera);
     }
   });
 
   function animate() {
-    if (activeGraphs[0]) {
-      if (activeGraphs[0].statement.usesTime) {
-        plotGraph(activeGraphs[0].statement);
+    for (const activeInput of activeInputs) {
+      if (activeInput.statement.usesTime) {
+        globalScope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
+
+        plotGraph(activeInput);
         renderer.render(scene, camera);
       }
     }

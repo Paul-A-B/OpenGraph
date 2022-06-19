@@ -25,9 +25,7 @@ function mj(expression) {
   );
 }
 
-const outputArea = document.getElementById("output");
-
-export function outputText(input, mathNode) {
+export function outputText(input, mathNode, outputArea) {
   if (input) {
     const symbols = mathNode.filter((node) => {
       return node.isSymbolNode;
@@ -48,7 +46,7 @@ export function outputText(input, mathNode) {
   }
 }
 
-export function outputError(input, error) {
+export function outputError(input, error, outputArea) {
   if (input) {
     outputArea.textContent = `${input} (${error.message})`;
   } else {

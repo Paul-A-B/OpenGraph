@@ -6,7 +6,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 const graph2DMaterial = new LineMaterial({
   color: 0x062596,
   worldUnits: false,
-  linewidth: 5,
+  linewidth: 7.5,
 });
 const graph3DMaterial = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
@@ -16,33 +16,6 @@ const graph3DMaterial = new THREE.MeshBasicMaterial({
 });
 
 const scope = {};
-
-function generateScope(statement) {
-  if (statement.fnNode.isFunctionAssignmentNode) {
-    for (const variable of statement.fnNode.params) {
-      scope[variable] = undefined;
-    }
-    statement.fnNode = statement.fnNode.expr;
-  } else {
-    for (const variable of statement.fnNode.filter((node, path, parent) => {
-      if (parent) {
-        return node.isSymbolNode && !(parent.fn === node);
-      } else {
-        return node.isSymbolNode;
-      }
-    })) {
-      try {
-        variable.evaluate();
-      } catch (error) {
-        scope[variable] = undefined;
-      }
-    }
-  }
-
-  if (statement.usesTime) {
-    scope.t = Math.sin(Date.now() / 10000) * 2 * Math.PI;
-  }
-}
 
 function Dimensions(input, output) {
   this.input = input;
@@ -63,7 +36,7 @@ function generateDimensions(possibleDimensions) {
   }
 
   if (outputDimensions.length === 1) {
-    return new Dimensions(inputDimensions, outputDimensions);
+    return new Dimensions(inputDimensions, outputDimensions[0]);
   } else {
     throw new Error("Die Eingabe kann nicht alle Axen enthalten.");
   }
@@ -82,7 +55,7 @@ const colorFactor = {
   },
 };
 
-const graphGroup = new THREE.Group();
+let graphGroup;
 
 const graphPoints = [];
 const graphColors = [];
@@ -101,7 +74,7 @@ function calculatePoints(
   dimensionCount = 1
 ) {
   if (!dimensions.input.length) {
-    point[dimensions.output[0]] = statement.fnNode.evaluate(scope);
+    point[dimensions.output] = statement.mathNode.evaluate(scope);
     let continuous = true;
 
     if (dimensionCount === 2) {
@@ -128,29 +101,26 @@ function calculatePoints(
             Math.round((Math.PI + Number.EPSILON) * 100) / 100
         ) {
           continuous = false;
-          const variables = Object.keys(scope);
+          const otherDimension = Object.keys(scope)[0];
 
           for (let i = 0; i < 10; i++) {
             const inputDifference =
-              Math.max(lastPoint[variables[0]], point[variables[0]]) -
-              Math.min(lastPoint[variables[0]], point[variables[0]]);
+              Math.max(lastPoint[otherDimension], point[otherDimension]) -
+              Math.min(lastPoint[otherDimension], point[otherDimension]);
             const midPoint = new THREE.Vector3(point.x, point.y, point.z);
-            scope[variables[0]] =
-              Math.max(lastPoint[variables[0]], point[variables[0]]) -
+            scope[otherDimension] =
+              Math.max(lastPoint[otherDimension], point[otherDimension]) -
               inputDifference / 2;
-            midPoint[variables[0]] = scope[variables[0]];
-            midPoint[dimensions.output[0]] = statement.fnNode.evaluate(scope);
+            midPoint[otherDimension] = scope[otherDimension];
+            midPoint[dimensions.output] = statement.mathNode.evaluate(scope);
 
             if (
               Math.min(
-                lastPoint[dimensions.output[0]],
-                point[dimensions.output[0]]
-              ) <= midPoint[dimensions.output[0]] &&
-              midPoint[dimensions.output[0]] <=
-                Math.max(
-                  lastPoint[dimensions.output[0]],
-                  point[dimensions.output[0]]
-                )
+                lastPoint[dimensions.output],
+                point[dimensions.output]
+              ) <= midPoint[dimensions.output] &&
+              midPoint[dimensions.output] <=
+                Math.max(lastPoint[dimensions.output], point[dimensions.output])
             ) {
               continuous = true;
               return;
@@ -159,22 +129,19 @@ function calculatePoints(
             const sectionsOutputDifference = {
               lastMid:
                 Math.max(
-                  lastPoint[dimensions.output[0]],
-                  midPoint[dimensions.output[0]]
+                  lastPoint[dimensions.output],
+                  midPoint[dimensions.output]
                 ) -
                 Math.min(
-                  lastPoint[dimensions.output[0]],
-                  midPoint[dimensions.output[0]]
+                  lastPoint[dimensions.output],
+                  midPoint[dimensions.output]
                 ),
               midNew:
                 Math.max(
-                  point[dimensions.output[0]],
-                  midPoint[dimensions.output[0]]
+                  point[dimensions.output],
+                  midPoint[dimensions.output]
                 ) -
-                Math.min(
-                  point[dimensions.output[0]],
-                  midPoint[dimensions.output[0]]
-                ),
+                Math.min(point[dimensions.output], midPoint[dimensions.output]),
             };
 
             if (
@@ -196,9 +163,9 @@ function calculatePoints(
     }
 
     if (
-      Number.isFinite(point[dimensions.output[0]]) &&
-      // point[dimensions.output[0]] <= size[dimensions.output[0]] &&
-      // point[dimensions.output[0]] >= -size[dimensions.output[0]] &&
+      Number.isFinite(point[dimensions.output]) &&
+      // point[dimensions.output] <= size[dimensions.output] &&
+      // point[dimensions.output] >= -size[dimensions.output] &&
       continuous
     ) {
       graphPoints.push(point.x, point.y, point.z);
@@ -206,16 +173,16 @@ function calculatePoints(
       if (dimensionCount === 3) {
         graphColors.push(
           colorFactor.from.r +
-            ((size[dimensions.output[0]] + point[dimensions.output[0]]) /
-              (size[dimensions.output[0]] * 2)) *
+            ((size[dimensions.output] + point[dimensions.output]) /
+              (size[dimensions.output] * 2)) *
               (colorFactor.to.r - colorFactor.from.r),
           colorFactor.from.g +
-            ((size[dimensions.output[0]] + point[dimensions.output[0]]) /
-              (size[dimensions.output[0]] * 2)) *
+            ((size[dimensions.output] + point[dimensions.output]) /
+              (size[dimensions.output] * 2)) *
               (colorFactor.to.g - colorFactor.from.g),
           colorFactor.from.b +
-            ((size[dimensions.output[0]] + point[dimensions.output[0]]) /
-              (size[dimensions.output[0]] * 2)) *
+            ((size[dimensions.output] + point[dimensions.output]) /
+              (size[dimensions.output] * 2)) *
               (colorFactor.to.b - colorFactor.from.b)
         );
       }
@@ -255,21 +222,21 @@ function calculatePoints(
   }
 }
 
-function Graph(statement, mesh, boundingBox) {
-  this.statement = statement;
+function Graph(mesh, boundingBox) {
   this.mesh = mesh;
   this.boundingBox = boundingBox;
 }
 
 export function generateGraph(
   mode,
+  globalScope,
   resolution,
   statement,
   visibleCoords,
   cameraPosition,
   canvas
 ) {
-  graphGroup.clear();
+  graphGroup = new THREE.Group();
 
   graphPoints.length = 0;
   graphColors.length = 0;
@@ -281,8 +248,9 @@ export function generateGraph(
     delete scope[variable];
   }
 
+  Object.assign(scope, statement.scope, globalScope);
+
   graph2DMaterial.resolution.copy(resolution);
-  generateScope(statement);
   switch (mode) {
     case "2D":
       return cartesian2D(statement, visibleCoords, cameraPosition, canvas);
@@ -314,7 +282,7 @@ function cartesian2D(statement, visibleCoords, cameraPosition, canvas) {
   const graphBoundingBox = new THREE.Box3();
   graphBoundingBox.setFromObject(graphGroup);
 
-  return new Graph(statement, graphGroup, graphBoundingBox);
+  return new Graph(graphGroup, graphBoundingBox);
 }
 
 function cartesian3D(statement) {
@@ -363,5 +331,5 @@ function cartesian3D(statement) {
   const graphBoundingBox = new THREE.Box3();
   graphBoundingBox.setFromObject(graphGroup);
 
-  return new Graph(statement, graphGroup, graphBoundingBox);
+  return new Graph(graphGroup, graphBoundingBox);
 }

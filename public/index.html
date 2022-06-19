@@ -11,13 +11,20 @@
   <body>
     <main>
       <div id="text-io">
-        <select name="mode" id="mode-selection">
-          <option value="2D">2D</option>
-          <option value="3D">3D</option>
-        </select>
-        <input type="text" id="input" />
-        <div id="output"></div>
+        <div id="controls">
+          <select name="mode" id="mode-selection">
+            <option value="2D">2D</option>
+            <option value="3D">3D</option>
+          </select>
+          <label for="count">Anzahl Eingabefelder</label>
+          <input type="number" id="count" value="1" min="0" />
+        </div>
+        <div class="io-field">
+          <input type="text" class="input" />
+          <div class="output"></div>
+        </div>
       </div>
+
       <div>
         <canvas id="graph"></canvas>
       </div>

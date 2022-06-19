@@ -3,7 +3,7 @@ import * as THREE from "three";
 let lastCameraZ;
 let zoomRepaint = false;
 
-function Redraw(graph = false, grid = false, axes = false) {
+function Redraw(graph = [], grid = false, axes = false) {
   this.graph = graph;
   this.grid = grid;
   this.axes = axes;
@@ -31,6 +31,7 @@ export function needsRedraw(
     case "3D":
       const redraw = new Redraw();
 
+      redraw.graph.push(false);
       if (!activeGrid) {
         redraw.grid = true;
       }
@@ -46,7 +47,7 @@ function cartesian2D(
   visibleCoords,
   step,
   cameraPosition,
-  activeGraphs,
+  activeInputs,
   activeGrid,
   activeAxes
 ) {
@@ -76,13 +77,15 @@ function cartesian2D(
     zoomRepaint = false;
   }
 
-  if (activeGraphs.length) {
+  for (let i = 0; i < activeInputs.length; i++) {
     if (
-      activeGraphs[0].boundingBox.max.x < cameraBox.max.x ||
-      activeGraphs[0].boundingBox.min.x > cameraBox.min.x ||
+      activeInputs[i].graph.boundingBox.max.x < cameraBox.max.x ||
+      activeInputs[i].graph.boundingBox.min.x > cameraBox.min.x ||
       zoomRepaint
     ) {
-      redraw.graph = true;
+      redraw.graph.push(true);
+    } else {
+      redraw.graph.push(false);
     }
   }
 
