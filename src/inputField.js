@@ -34,6 +34,14 @@ export function initInputFields(container, eventHandler) {
 
         container.appendChild(ioField);
       } else {
+        container.dispatchEvent(
+          new CustomEvent("inputRemoved", {
+            detail:
+              ioFields[ioFields.length - 1 - i].getElementsByClassName(
+                "input"
+              )[0],
+          })
+        );
         container.removeChild(ioFields[ioFields.length - 1 - i]);
       }
     }

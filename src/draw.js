@@ -78,6 +78,10 @@ function cartesian2D(
   }
 
   for (let i = 0; i < activeInputs.length; i++) {
+    if (activeInputs[i].statement.isPoint) {
+      redraw.graph.push(false);
+      break;
+    }
     if (
       activeInputs[i].graph.boundingBox.max.x < cameraBox.max.x ||
       activeInputs[i].graph.boundingBox.min.x > cameraBox.min.x ||

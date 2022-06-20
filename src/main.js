@@ -8,6 +8,9 @@ import { outputError, outputText } from "./textOutput";
 import { generateGraph } from "./graph";
 import { needsRedraw } from "./draw";
 import { initInputFields } from "./inputField";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
 window.addEventListener("load", init);
 
@@ -59,10 +62,9 @@ function init() {
 
   function reset() {
     const width =
-      ((window.innerWidth - textIOArea.getBoundingClientRect().width) *
-        window.devicePixelRatio) |
-      0;
-    const height = (window.innerHeight * window.devicePixelRatio) | 0;
+      (window.innerWidth - textIOArea.getBoundingClientRect().width) *
+        window.devicePixelRatio || 0;
+    const height = window.innerHeight * window.devicePixelRatio || 0;
     if (canvas.width !== width || canvas.height !== height) {
       renderer.setSize(width, height, false);
       camera.aspect =
@@ -102,11 +104,7 @@ function init() {
   let activeGrid;
   function drawGrid() {
     if (activeGrid) {
-      activeGrid.mesh.traverse((object) => {
-        if (object.material) object.material.dispose();
-        if (object.geometry) object.geometry.dispose();
-      });
-      scene.remove(activeGrid.mesh);
+      removeMesh(activeGrid.mesh);
     }
 
     activeGrid = generateGrid(
@@ -125,11 +123,7 @@ function init() {
   let activeAxes;
   function drawAxes() {
     if (activeAxes) {
-      activeAxes.mesh.traverse((object) => {
-        if (object.material) object.material.dispose();
-        if (object.geometry) object.geometry.dispose();
-      });
-      scene.remove(activeAxes.mesh);
+      removeMesh(activeAxes.mesh);
     }
 
     activeAxes = generateAxes(
@@ -152,6 +146,35 @@ function init() {
     scene.add(activeAxes.mesh);
   }
 
+  const pointMaterial = new THREE.PointsMaterial({
+    color: 0x8c0101,
+    size: 15,
+    sizeAttenuation: false,
+  });
+
+  function generatePoint(coords) {
+    for (let i = 0; i < 3; i++) {
+      if (coords[i]) {
+        coords[i] =
+          coords[i].evaluate(globalScope) || globalScope[coords[i].name] || 0;
+      } else {
+        coords[i] = 0;
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(coords, 3)
+    );
+
+    const point = new THREE.Points(geometry, pointMaterial);
+    point.renderOrder = 6;
+
+    return { mesh: point };
+  }
+
   const math = create(all, {});
 
   function Input(htmlElement, statement, graph) {
@@ -166,10 +189,20 @@ function init() {
     } else {
       this.mathNode = mathNode;
     }
-    this.scope = generateScope(mathNode);
+
+    if (mathNode.isFunctionNode) {
+      this.scope = mathNode.args;
+    } else {
+      this.scope = generateScope(mathNode);
+    }
+
     this.usesTime = mathNode.filter((node) => {
       return node.isSymbolNode && node.name == "t";
     }).length;
+
+    this.isPoint = mathNode.isFunctionNode && mathNode.name === "Punkt";
+
+    this.isPolygon = mathNode.isFunctionNode && mathNode.name === "Polygon";
   }
 
   function generateScope(mathNode) {
@@ -202,10 +235,59 @@ function init() {
 
   initInputFields(textIOArea, takeInput);
 
+  textIOArea.addEventListener("inputRemoved", (event) => {
+    const oldInput = activeInputs.filter((existingInput) => {
+      return existingInput.owner === event.detail;
+    })[0];
+
+    if (oldInput) {
+      removeMesh(oldInput.graph.mesh);
+      activeInputs.splice(activeInputs.indexOf(oldInput), 1);
+    }
+
+    renderer.render(scene, camera);
+  });
+
+  function removeMesh(mesh) {
+    if (mesh) {
+      mesh.traverse((object) => {
+        if (object.material) object.material.dispose();
+        if (object.geometry) object.geometry.dispose();
+      });
+      scene.remove(mesh);
+    }
+  }
+
+  const polygonMaterial = new LineMaterial({
+    color: 0xfe6262,
+    worldUnits: false,
+    linewidth: 5,
+  });
+
+  function generatePolygon(points) {
+    const linePoints = [];
+
+    for (const point of points) {
+      linePoints.push(globalScope[point].scope);
+    }
+
+    linePoints.push(linePoints[0]);
+
+    const polygonGeometry = new LineGeometry();
+    polygonGeometry.setPositions(linePoints.flat());
+
+    polygonMaterial.resolution = resolution;
+
+    const polygon = new Line2(polygonGeometry, polygonMaterial);
+    polygon.renderOrder = 1;
+
+    return { mesh: polygon };
+  }
+
   const globalScope = {};
   const activeInputs = [];
   function takeInput(event) {
-    const inputText = event.target.value;
+    const inputText = `${event.target.value}`;
 
     if (!inputText) {
       const oldInput = activeInputs.filter((existingInput) => {
@@ -213,25 +295,24 @@ function init() {
       })[0];
 
       if (oldInput) {
-        oldInput.graph.mesh.traverse((object) => {
-          if (object.material) object.material.dispose();
-          if (object.geometry) object.geometry.dispose();
-        });
-        scene.remove(oldInput.graph.mesh);
+        removeMesh(oldInput.graph.mesh);
+        activeInputs.splice(activeInputs.indexOf(oldInput), 1);
       }
-
-      activeInputs.splice(activeInputs.indexOf(oldInput), 1);
     }
 
     const outputArea =
       event.target.parentNode.getElementsByClassName("output")[0];
     try {
-      const mathNode = math.parse(inputText);
+      let mathNode = math.parse(inputText);
       outputText(inputText, mathNode, outputArea);
 
       if (mathNode.isAssignmentNode) {
-        globalScope[mathNode.name] = mathNode.value.evaluate(globalScope);
-        return;
+        if (mathNode.value.isFunctionNode && mathNode.value.name === "Punkt") {
+          globalScope[mathNode.name] = new Statement(mathNode.value);
+          mathNode = mathNode.value;
+        } else {
+          globalScope[mathNode.name] = mathNode.value.evaluate(globalScope);
+        }
       }
 
       if (inputText) {
@@ -249,41 +330,45 @@ function init() {
     })[0];
 
     if (oldInput) {
-      oldInput.graph.mesh.traverse((object) => {
-        if (object.material) object.material.dispose();
-        if (object.geometry) object.geometry.dispose();
-      });
-      scene.remove(oldInput.graph.mesh);
+      removeMesh(oldInput.graph.mesh);
 
       oldInput.statement = input.statement;
 
-      oldInput.graph = generateGraph(
-        select.value,
-        globalScope,
-        resolution,
-        input.statement,
-        visibleCoords,
-        camera.position,
-        canvas
-      );
+      if (input.statement.isPoint) {
+        oldInput.graph = generatePoint(input.statement.scope);
+      } else if (input.statement.isPolygon) {
+        oldInput.graph = generatePolygon(input.statement.scope);
+      } else {
+        oldInput.graph = generateGraph(
+          select.value,
+          globalScope,
+          resolution,
+          input.statement,
+          visibleCoords,
+          camera.position,
+          canvas
+        );
+      }
 
       scene.add(oldInput.graph.mesh);
     } else {
-      activeInputs.push(
-        new Input(
-          input.owner,
+      if (input.statement.isPoint) {
+        input.graph = generatePoint(input.statement.scope);
+      } else if (input.statement.isPolygon) {
+        input.graph = generatePolygon(input.statement.scope);
+      } else {
+        input.graph = generateGraph(
+          select.value,
+          globalScope,
+          resolution,
           input.statement,
-          generateGraph(
-            select.value,
-            globalScope,
-            resolution,
-            input.statement,
-            visibleCoords,
-            camera.position,
-            canvas
-          )
-        )
-      );
+          visibleCoords,
+          camera.position,
+          canvas
+        );
+      }
+
+      activeInputs.push(input);
 
       scene.add(activeInputs[activeInputs.length - 1].graph.mesh);
     }
@@ -346,6 +431,7 @@ function init() {
         camera.position.set(25, 25, 12.5);
         camera.up.set(0, 0, 1);
         controls.enableRotate = true;
+        break;
     }
 
     camera.lookAt(0, 0, 0);

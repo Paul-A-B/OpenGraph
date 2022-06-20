@@ -29,6 +29,7 @@ main {
 #text-io {
   border-right: 5px solid black;
   padding: 0.5em;
+  overflow-y: auto;
 }
 
 #mode-selection {
