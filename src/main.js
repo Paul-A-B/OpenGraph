@@ -198,7 +198,10 @@ function init() {
       this.mathNode = mathNode;
     }
 
-    if (mathNode.isFunctionNode) {
+    if (
+      mathNode.isFunctionNode &&
+      (mathNode.name === "Punkt" || mathNode.name === "Polygon")
+    ) {
       this.scope = mathNode.args;
     } else {
       this.scope = generateScope(mathNode);
@@ -293,6 +296,8 @@ function init() {
   }
 
   const globalScope = {};
+  globalScope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
+
   const activeInputs = [];
   function takeInput(event) {
     const inputText = `${event.target.value}`;
