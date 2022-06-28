@@ -1,27 +1,38 @@
 import { all, create } from "mathjs";
-import * as THREE from "three";
+import {
+  BufferGeometry,
+  Color,
+  Float32BufferAttribute,
+  Object3D,
+  PerspectiveCamera,
+  Points,
+  PointsMaterial,
+  Scene,
+  Vector2,
+  WebGLRenderer,
+} from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { generateAxes } from "./axes";
-import { initCharacterCache, generateCoordinates } from "./coords";
-import { generateGrid } from "./grid";
-import { outputError, outputText } from "./textOutput";
-import { generateGraph } from "./graph";
-import { needsRedraw } from "./draw";
-import { initInputFields } from "./inputField";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+import { generateAxes } from "./axes";
+import { generateCoordinates, initCharacterCache } from "./coords";
+import { needsRedraw } from "./draw";
+import { generateGraph } from "./graph";
+import { generateGrid } from "./grid";
+import { initInputFields } from "./inputField";
+import { outputError, outputText } from "./textOutput";
 
 window.addEventListener("load", init);
 
-THREE.Object3D.DefaultUp.set(0, 0, 1);
+Object3D.DefaultUp.set(0, 0, 1);
 
 function init() {
   const canvas = document.getElementById("graph");
   const textIOArea = document.getElementById("text-io");
   const select = document.getElementById("mode-selection");
 
-  const renderer = new THREE.WebGLRenderer({
+  const renderer = new WebGLRenderer({
     canvas: canvas,
     antialias: true,
     stencil: false,
@@ -35,7 +46,7 @@ function init() {
     false
   );
 
-  const camera = new THREE.PerspectiveCamera(
+  const camera = new PerspectiveCamera(
     45,
     ((window.innerWidth - textIOArea.getBoundingClientRect().width) *
       window.devicePixelRatio) /
@@ -46,8 +57,8 @@ function init() {
   camera.position.set(0, 0, 25);
   camera.lookAt(0, 0, 0);
 
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
+  const scene = new Scene();
+  scene.background = new Color(0xffffff);
 
   const controls = new OrbitControls(camera, canvas);
   controls.enableRotate = false;
@@ -95,11 +106,11 @@ function init() {
     return height * camera.aspect;
   };
 
-  const visibleCoords = new THREE.Vector2();
+  const visibleCoords = new Vector2();
 
   let stepX, stepY, step;
 
-  const resolution = new THREE.Vector2(canvas.width, canvas.height);
+  const resolution = new Vector2(canvas.width, canvas.height);
 
   let activeGrid;
   function drawGrid() {
@@ -146,7 +157,7 @@ function init() {
     scene.add(activeAxes.mesh);
   }
 
-  const pointMaterial = new THREE.PointsMaterial({
+  const pointMaterial = new PointsMaterial({
     color: 0x8c0101,
     size: 15,
     sizeAttenuation: false,
@@ -162,14 +173,11 @@ function init() {
       }
     }
 
-    const geometry = new THREE.BufferGeometry();
+    const geometry = new BufferGeometry();
 
-    geometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(coords, 3)
-    );
+    geometry.setAttribute("position", new Float32BufferAttribute(coords, 3));
 
-    const point = new THREE.Points(geometry, pointMaterial);
+    const point = new Points(geometry, pointMaterial);
     point.renderOrder = 6;
 
     return { mesh: point };
@@ -421,13 +429,13 @@ function init() {
 
     switch (select.value) {
       case "2D":
-        scene.background = new THREE.Color(0xffffff);
+        scene.background = new Color(0xffffff);
         camera.position.set(0, 0, 25);
         camera.up.set(0, 1, 0);
         controls.enableRotate = false;
         break;
       case "3D":
-        scene.background = new THREE.Color(0x999999);
+        scene.background = new Color(0x999999);
         camera.position.set(25, 25, 12.5);
         camera.up.set(0, 0, 1);
         controls.enableRotate = true;

@@ -1,4 +1,13 @@
-import * as THREE from "three";
+import {
+  Box3,
+  BufferGeometry,
+  DoubleSide,
+  Float32BufferAttribute,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Vector3,
+} from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -8,8 +17,8 @@ const graph2DMaterial = new LineMaterial({
   worldUnits: false,
   linewidth: 7.5,
 });
-const graph3DMaterial = new THREE.MeshBasicMaterial({
-  side: THREE.DoubleSide,
+const graph3DMaterial = new MeshBasicMaterial({
+  side: DoubleSide,
   vertexColors: true,
   // wireframe: true,
   // color: 0xff0000,
@@ -61,7 +70,7 @@ const graphPoints = [];
 const graphColors = [];
 const graphIndices = [];
 
-const point = new THREE.Vector3();
+const point = new Vector3();
 
 let iterations = 0;
 
@@ -79,7 +88,7 @@ function calculatePoints(
 
     if (dimensionCount === 2) {
       if (graphPoints.length >= 3) {
-        const lastPoint = new THREE.Vector3(
+        const lastPoint = new Vector3(
           graphPoints[graphPoints.length - 3],
           graphPoints[graphPoints.length - 2],
           graphPoints[graphPoints.length - 1]
@@ -107,7 +116,7 @@ function calculatePoints(
             const inputDifference =
               Math.max(lastPoint[otherDimension], point[otherDimension]) -
               Math.min(lastPoint[otherDimension], point[otherDimension]);
-            const midPoint = new THREE.Vector3(point.x, point.y, point.z);
+            const midPoint = new Vector3(point.x, point.y, point.z);
             scope[otherDimension] =
               Math.max(lastPoint[otherDimension], point[otherDimension]) -
               inputDifference / 2;
@@ -236,7 +245,7 @@ export function generateGraph(
   cameraPosition,
   canvas
 ) {
-  graphGroup = new THREE.Group();
+  graphGroup = new Group();
 
   graphPoints.length = 0;
   graphColors.length = 0;
@@ -279,15 +288,15 @@ function cartesian2D(statement, visibleCoords, cameraPosition, canvas) {
 
     graphGroup.add(graphLine);
   }
-  const graphBoundingBox = new THREE.Box3();
+  const graphBoundingBox = new Box3();
   graphBoundingBox.setFromObject(graphGroup);
 
   return new Graph(graphGroup, graphBoundingBox);
 }
 
 function cartesian3D(statement) {
-  const length = new THREE.Vector3(10, 10, 10);
-  const offset = new THREE.Vector3(0, 0, 0);
+  const length = new Vector3(10, 10, 10);
+  const offset = new Vector3(0, 0, 0);
   const precision = 100;
 
   const dimensions = generateDimensions(["x", "y", "z"]);
@@ -309,26 +318,26 @@ function cartesian3D(statement) {
       }
     }
 
-    const graphGeometry = new THREE.BufferGeometry();
+    const graphGeometry = new BufferGeometry();
 
     graphGeometry.setIndex(graphIndices);
     graphGeometry.setAttribute(
       "position",
-      new THREE.Float32BufferAttribute(graphPoints, 3)
+      new Float32BufferAttribute(graphPoints, 3)
     );
     graphGeometry.computeVertexNormals();
     graphGeometry.setAttribute(
       "color",
-      new THREE.Float32BufferAttribute(graphColors, 3)
+      new Float32BufferAttribute(graphColors, 3)
     );
 
-    const graphMesh = new THREE.Mesh(graphGeometry, graph3DMaterial);
+    const graphMesh = new Mesh(graphGeometry, graph3DMaterial);
     graphMesh.renderOrder = 0; // rendert über Grid und Beschriftung
 
     graphGroup.add(graphMesh);
   }
 
-  const graphBoundingBox = new THREE.Box3();
+  const graphBoundingBox = new Box3();
   graphBoundingBox.setFromObject(graphGroup);
 
   return new Graph(graphGroup, graphBoundingBox);

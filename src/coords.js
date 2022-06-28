@@ -1,8 +1,14 @@
-import { Group, Mesh, Box3, PlaneGeometry, MeshBasicMaterial } from "three";
-import * as THREE from "three";
-import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import {
+  Box3,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  Vector2,
+  Vector3,
+} from "three";
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
-import { BufferGeometry } from "three";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
 const charMaterial = new MeshBasicMaterial({
   color: 0x000000,
@@ -45,7 +51,7 @@ function addToCharCache(char) {
         characterGeometry.boundingBox.max.y -
         characterGeometry.boundingBox.min.y,
     },
-    new THREE.Vector2(
+    new Vector2(
       characterGeometry.boundingBox.min.x,
       characterGeometry.boundingBox.min.y
     )
@@ -234,7 +240,7 @@ function cartesian3D(intersection) {
   const horizontalCoordGroup = new Group();
   const lateralCoordGroup = new Group();
 
-  const length = new THREE.Vector3(10, 10, 10);
+  const length = new Vector3(10, 10, 10);
 
   for (let x = -length.x; x <= length.x; x += Math.round(length.x / 5)) {
     const coordMesh = new Group();
