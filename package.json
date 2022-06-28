@@ -1,7 +1,8 @@
 {
-  "name": "graphingcalc",
+  "name": "opengraph",
+  "productName": "opengraph",
   "version": "1.0.0",
-  "description": "",
+  "description": "Eine open-source Alternative für Desmos und Geogebra",
   "main": "src/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -10,15 +11,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Paul-A-B/GraphicCalc.git"
+    "url": "git+https://github.com/Paul-A-B/OpenGraph.git"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Paul-A-B/GraphicCalc/issues"
+  "author": {
+    "name": "Paul-A-B",
+    "email": "104840626+Paul-A-B@users.noreply.github.com"
   },
-  "homepage": "https://github.com/Paul-A-B/GraphicCalc#readme",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Paul-A-B/OpenGraph/issues"
+  },
+  "homepage": "https://github.com/Paul-A-B/OpenGraph#readme",
   "dependencies": {
     "mathjs": "^10.5.3",
     "three": "^0.140.2"
