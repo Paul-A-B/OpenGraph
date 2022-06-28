@@ -7,6 +7,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   Vector3,
+  ArrowHelper,
 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
@@ -51,13 +52,13 @@ function generateDimensions(possibleDimensions) {
   }
 }
 
-const colorFactor = {
-  from: {
+const meshColor = {
+  start: {
     r: 0.314,
     g: 0.42,
     b: 0.69,
   },
-  to: {
+  end: {
     r: 0.97,
     g: 0.78,
     b: 0.89,
@@ -86,113 +87,109 @@ function calculatePoints(
     point[dimensions.output] = statement.mathNode.evaluate(scope);
     let continuous = true;
 
-    if (dimensionCount === 2) {
-      if (graphPoints.length >= 3) {
-        const lastPoint = new Vector3(
-          graphPoints[graphPoints.length - 3],
-          graphPoints[graphPoints.length - 2],
-          graphPoints[graphPoints.length - 1]
-        );
+    if (dimensionCount === 2 && graphPoints.length >= 6) {
+      const secondToLastPoint = new Vector3(
+        graphPoints[graphPoints.length - 6],
+        graphPoints[graphPoints.length - 5],
+        graphPoints[graphPoints.length - 4]
+      );
+      const lastPoint = new Vector3(
+        graphPoints[graphPoints.length - 3],
+        graphPoints[graphPoints.length - 2],
+        graphPoints[graphPoints.length - 1]
+      );
+      const centeredPoint = new Vector3().copy(point);
+      const centeredLastPoint = new Vector3().copy(lastPoint);
 
-        // https://patents.google.com/patent/US6704013B2/en
-        const angle = point.angleTo(lastPoint);
-        const scopeBackup = {};
-        for (const variable in scope) {
-          scopeBackup[variable] = scope[variable];
-        }
-        const pointBackup = {};
-        for (const variable in point) {
-          pointBackup[variable] = point[variable];
-        }
-        if (
-          angle > Math.PI / 4 &&
-          Math.round((angle + Number.EPSILON) * 100) / 100 !=
-            Math.round((Math.PI + Number.EPSILON) * 100) / 100
-        ) {
-          continuous = false;
-          const otherDimension = Object.keys(scope)[0];
+      secondToLastPoint.negate();
 
-          for (let i = 0; i < 10; i++) {
-            const inputDifference =
-              Math.max(lastPoint[otherDimension], point[otherDimension]) -
-              Math.min(lastPoint[otherDimension], point[otherDimension]);
-            const midPoint = new Vector3(point.x, point.y, point.z);
-            scope[otherDimension] =
-              Math.max(lastPoint[otherDimension], point[otherDimension]) -
-              inputDifference / 2;
-            midPoint[otherDimension] = scope[otherDimension];
-            midPoint[dimensions.output] = statement.mathNode.evaluate(scope);
+      centeredPoint.add(secondToLastPoint);
+      centeredLastPoint.add(secondToLastPoint); // versetzt den Nullpunkt
 
-            if (
+      // https://patents.google.com/patent/US6704013B2/en
+      const angle = centeredPoint.angleTo(centeredLastPoint);
+      const scopeBackup = {};
+      for (const variable in scope) {
+        scopeBackup[variable] = scope[variable];
+      }
+      const pointBackup = {};
+      for (const variable in point) {
+        pointBackup[variable] = point[variable];
+      }
+      if (angle > Math.PI / 4) {
+        continuous = false;
+        const otherDimension = Object.keys(scope)[0];
+
+        for (let i = 0; i < 10; i++) {
+          const inputDifference =
+            Math.max(lastPoint[otherDimension], point[otherDimension]) -
+            Math.min(lastPoint[otherDimension], point[otherDimension]);
+          const midPoint = new Vector3(point.x, point.y, point.z);
+          scope[otherDimension] =
+            Math.max(lastPoint[otherDimension], point[otherDimension]) -
+            inputDifference / 2;
+          midPoint[otherDimension] = scope[otherDimension];
+          midPoint[dimensions.output] = statement.mathNode.evaluate(scope);
+
+          if (
+            Math.min(lastPoint[dimensions.output], point[dimensions.output]) <
+              midPoint[dimensions.output] &&
+            midPoint[dimensions.output] <
+              Math.max(lastPoint[dimensions.output], point[dimensions.output])
+          ) {
+            continuous = true;
+            break;
+          }
+
+          const sectionsOutputDifference = {
+            lastMid:
+              Math.max(
+                lastPoint[dimensions.output],
+                midPoint[dimensions.output]
+              ) -
               Math.min(
                 lastPoint[dimensions.output],
-                point[dimensions.output]
-              ) <= midPoint[dimensions.output] &&
-              midPoint[dimensions.output] <=
-                Math.max(lastPoint[dimensions.output], point[dimensions.output])
-            ) {
-              continuous = true;
-              return;
-            }
+                midPoint[dimensions.output]
+              ),
+            midNew:
+              Math.max(point[dimensions.output], midPoint[dimensions.output]) -
+              Math.min(point[dimensions.output], midPoint[dimensions.output]),
+          };
 
-            const sectionsOutputDifference = {
-              lastMid:
-                Math.max(
-                  lastPoint[dimensions.output],
-                  midPoint[dimensions.output]
-                ) -
-                Math.min(
-                  lastPoint[dimensions.output],
-                  midPoint[dimensions.output]
-                ),
-              midNew:
-                Math.max(
-                  point[dimensions.output],
-                  midPoint[dimensions.output]
-                ) -
-                Math.min(point[dimensions.output], midPoint[dimensions.output]),
-            };
-
-            if (
-              sectionsOutputDifference.lastMid > sectionsOutputDifference.midNew
-            ) {
-              point.copy(midPoint);
-            } else {
-              lastPoint.copy(midPoint);
-            }
+          if (
+            sectionsOutputDifference.lastMid > sectionsOutputDifference.midNew
+          ) {
+            point.copy(midPoint);
+          } else {
+            lastPoint.copy(midPoint);
           }
-          for (const variable in scopeBackup) {
-            scope[variable] = scopeBackup[variable];
-          }
-          for (const variable in point) {
-            point[variable] = pointBackup[variable];
-          }
+        }
+        for (const variable in scopeBackup) {
+          scope[variable] = scopeBackup[variable];
+        }
+        for (const variable in point) {
+          point[variable] = pointBackup[variable];
         }
       }
     }
 
-    if (
-      Number.isFinite(point[dimensions.output]) &&
-      // point[dimensions.output] <= size[dimensions.output] &&
-      // point[dimensions.output] >= -size[dimensions.output] &&
-      continuous
-    ) {
+    if (Number.isFinite(point[dimensions.output]) && continuous) {
       graphPoints.push(point.x, point.y, point.z);
 
       if (dimensionCount === 3) {
         graphColors.push(
-          colorFactor.from.r +
+          meshColor.start.r +
             ((size[dimensions.output] + point[dimensions.output]) /
               (size[dimensions.output] * 2)) *
-              (colorFactor.to.r - colorFactor.from.r),
-          colorFactor.from.g +
+              (meshColor.end.r - meshColor.start.r),
+          meshColor.start.g +
             ((size[dimensions.output] + point[dimensions.output]) /
               (size[dimensions.output] * 2)) *
-              (colorFactor.to.g - colorFactor.from.g),
-          colorFactor.from.b +
+              (meshColor.end.g - meshColor.start.g),
+          meshColor.start.b +
             ((size[dimensions.output] + point[dimensions.output]) /
               (size[dimensions.output] * 2)) *
-              (colorFactor.to.b - colorFactor.from.b)
+              (meshColor.end.b - meshColor.start.b)
         );
       }
     } else {
