@@ -18,13 +18,6 @@ const coordBackgroundMaterial = new MeshBasicMaterial({
   depthWrite: false,
 });
 
-let font;
-const loader = new FontLoader();
-loader.crossOrigin = ""; // vllt wieder rausnehmen
-loader.load("fonts/IBM Plex Mono_Regular.json", (response) => {
-  font = response;
-});
-
 function PrecalculatedTextGeometry(geometry, size, offset) {
   this.geometry = geometry;
   this.size = size;
@@ -58,7 +51,10 @@ function addToCharCache(char) {
   );
 }
 
-export function initCharacterCache() {
+let font;
+export async function initCharacterCache() {
+  const loader = new FontLoader();
+  font = await loader.loadAsync("fonts/IBM Plex Mono_Regular.json");
   for (let char of "1234567890.-") {
     addToCharCache(char);
   }

@@ -27,7 +27,7 @@ window.addEventListener("load", init);
 
 Object3D.DefaultUp.set(0, 0, 1);
 
-function init() {
+async function init() {
   const canvas = document.getElementById("graph");
   const textIOArea = document.getElementById("text-io");
   const select = document.getElementById("mode-selection");
@@ -129,7 +129,7 @@ function init() {
     scene.add(activeGrid.mesh);
   }
 
-  initCharacterCache();
+  await initCharacterCache();
 
   let activeAxes;
   function drawAxes() {
