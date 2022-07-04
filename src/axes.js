@@ -34,77 +34,68 @@ export function generateAxes(
 function cartesian2D(visibleCoords, step, cameraPosition) {
   const axesLinesGroup = new Group();
 
+  const dimensions = ["x", "y"];
+
   const intersection = new Vector2();
 
-  if (-visibleCoords.x / 2 + cameraPosition.x + step / 5 >= 0) {
-    intersection.x =
-      Math.round((-visibleCoords.x / 2 + cameraPosition.x) / (step / 10)) *
-        (step / 10) +
-      step / 5;
-  } else if (visibleCoords.x / 2 + cameraPosition.x - step / 5 <= 0) {
-    intersection.x =
-      Math.round((visibleCoords.x / 2 + cameraPosition.x) / (step / 10)) *
-        (step / 10) -
-      step / 5;
-  } else {
-    intersection.x = 0;
+  for (const currentDimension of dimensions) {
+    const otherDimension = dimensions.filter(
+      (dimension) => dimension != currentDimension
+    )[0];
+
+    if (
+      -visibleCoords[otherDimension] / 2 +
+        cameraPosition[otherDimension] +
+        step / 5 >=
+      0
+    ) {
+      intersection[otherDimension] =
+        Math.round(
+          (-visibleCoords[otherDimension] / 2 +
+            cameraPosition[otherDimension]) /
+            (step / 10)
+        ) *
+          (step / 10) +
+        step / 5;
+    } else if (
+      visibleCoords[otherDimension] / 2 +
+        cameraPosition[otherDimension] -
+        step / 5 <=
+      0
+    ) {
+      intersection[otherDimension] =
+        Math.round(
+          (visibleCoords[otherDimension] / 2 + cameraPosition[otherDimension]) /
+            (step / 10)
+        ) *
+          (step / 10) -
+        step / 5;
+    } else {
+      intersection[otherDimension] = 0;
+    }
+
+    const axisPoints = [];
+    const min = new Vector3();
+    const max = new Vector3();
+
+    min[currentDimension] =
+      -visibleCoords[currentDimension] + cameraPosition[currentDimension];
+    max[currentDimension] =
+      visibleCoords[currentDimension] + cameraPosition[currentDimension];
+
+    min[otherDimension] = intersection[otherDimension];
+    max[otherDimension] = intersection[otherDimension];
+
+    axisPoints.push(min.x, min.y, min.z);
+    axisPoints.push(max.x, max.y, min.z);
+
+    const axisGeometry = new LineGeometry().setPositions(axisPoints);
+
+    const axis = new Line2(axisGeometry, axesMaterial);
+    axis.renderOrder = 2;
+
+    axesLinesGroup.add(axis);
   }
-
-  const verticalAxesPoints = [];
-  verticalAxesPoints.push(
-    intersection.x,
-    -visibleCoords.y + cameraPosition.y,
-    0
-  );
-  verticalAxesPoints.push(
-    intersection.x,
-    visibleCoords.y + cameraPosition.y,
-    0
-  );
-
-  const verticalAxisGeometry = new LineGeometry().setPositions(
-    verticalAxesPoints
-  );
-
-  const verticalAxis = new Line2(verticalAxisGeometry, axesMaterial);
-  verticalAxis.renderOrder = 2;
-
-  axesLinesGroup.add(verticalAxis);
-
-  if (-visibleCoords.y / 2 + cameraPosition.y + step / 5 >= 0) {
-    intersection.y =
-      Math.round((-visibleCoords.y / 2 + cameraPosition.y) / (step / 10)) *
-        (step / 10) +
-      step / 5;
-  } else if (visibleCoords.y / 2 + cameraPosition.y - step / 5 <= 0) {
-    intersection.y =
-      Math.round((visibleCoords.y / 2 + cameraPosition.y) / (step / 10)) *
-        (step / 10) -
-      step / 5;
-  } else {
-    intersection.y = 0;
-  }
-
-  const horizontalAxesPoints = [];
-  horizontalAxesPoints.push(
-    -visibleCoords.x + cameraPosition.x,
-    intersection.y,
-    0
-  );
-  horizontalAxesPoints.push(
-    visibleCoords.x + cameraPosition.x,
-    intersection.y,
-    0
-  );
-
-  const horizontalAxisGeometry = new LineGeometry().setPositions(
-    horizontalAxesPoints
-  );
-
-  const horizontalAxis = new Line2(horizontalAxisGeometry, axesMaterial);
-  horizontalAxis.renderOrder = 2;
-
-  axesLinesGroup.add(horizontalAxis);
 
   const axesGroup = new Group();
 
@@ -118,44 +109,26 @@ function cartesian3D() {
 
   const length = new Vector3(10, 10, 10);
 
-  const verticalAxesPoints = [];
-  verticalAxesPoints.push(0, -length.y, 0);
-  verticalAxesPoints.push(0, length.y, 0);
+  const dimensions = ["x", "y", "z"];
 
-  const verticalAxisGeometry = new LineGeometry().setPositions(
-    verticalAxesPoints
-  );
+  for (const currentDimension of dimensions) {
+    const axisPoints = [];
+    const min = new Vector3();
+    const max = new Vector3();
 
-  const verticalAxis = new Line2(verticalAxisGeometry, axesMaterial);
-  verticalAxis.renderOrder = 2;
+    min[currentDimension] = -length[currentDimension];
+    max[currentDimension] = length[currentDimension];
 
-  axesLinesGroup.add(verticalAxis);
+    axisPoints.push(min.x, min.y, min.z);
+    axisPoints.push(max.x, max.y, min.z);
 
-  const horizontalAxesPoints = [];
-  horizontalAxesPoints.push(-length.x, 0, 0);
-  horizontalAxesPoints.push(length.x, 0, 0);
+    const axisGeometry = new LineGeometry().setPositions(axisPoints);
 
-  const horizontalAxisGeometry = new LineGeometry().setPositions(
-    horizontalAxesPoints
-  );
+    const axis = new Line2(axisGeometry, axesMaterial);
+    axis.renderOrder = 2;
 
-  const horizontalAxis = new Line2(horizontalAxisGeometry, axesMaterial);
-  horizontalAxis.renderOrder = 2;
-
-  axesLinesGroup.add(horizontalAxis);
-
-  const lateralAxesPoints = [];
-  lateralAxesPoints.push(0, 0, -length.z);
-  lateralAxesPoints.push(0, 0, length.z);
-
-  const lateralAxesGeometry = new LineGeometry().setPositions(
-    lateralAxesPoints
-  );
-
-  const lateralAxis = new Line2(lateralAxesGeometry, axesMaterial);
-  lateralAxis.renderOrder = 2;
-
-  axesLinesGroup.add(lateralAxis);
+    axesLinesGroup.add(axis);
+  }
 
   const axesGroup = new Group();
 
