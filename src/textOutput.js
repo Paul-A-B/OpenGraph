@@ -1,7 +1,3 @@
-import { all, create } from "mathjs";
-
-const math = create(all, {});
-
 window.MathJax = {
   options: {
     enableMenu: false,
@@ -25,7 +21,7 @@ function mj(expression) {
   );
 }
 
-export function outputText(input, mathNode, outputArea) {
+export function outputText(math, input, mathNode, outputArea) {
   if (input) {
     const symbols = mathNode.filter((node) => {
       return node.isSymbolNode;

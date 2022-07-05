@@ -1,4 +1,4 @@
-import { all, create } from "mathjs";
+import { all, create } from "mathjs/number";
 import {
   BufferGeometry,
   Color,
@@ -321,7 +321,7 @@ async function init() {
       event.target.parentNode.getElementsByClassName("output")[0];
     try {
       let mathNode = math.parse(inputText);
-      outputText(inputText, mathNode, outputArea);
+      outputText(math, inputText, mathNode, outputArea);
 
       if (mathNode.isAssignmentNode) {
         if (mathNode.value.isFunctionNode && mathNode.value.name === "Punkt") {
