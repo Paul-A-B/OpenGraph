@@ -1,4 +1,4 @@
-import { Box3, Group, Vector3 } from "three";
+import { Box2, Box3, Group, Vector2, Vector3 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -62,8 +62,8 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
       variable += step / 10, iteration++
     ) {
       const points = [];
-      const min = new Vector3();
-      const max = new Vector3();
+      const min = new Vector2();
+      const max = new Vector2();
 
       min[currentDimension] = variable;
       max[currentDimension] = variable;
@@ -73,8 +73,8 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
       max[otherDimension] =
         visibleCoords[otherDimension] + cameraPosition[otherDimension];
 
-      points.push(min.x, min.y, min.z);
-      points.push(max.x, max.y, max.z);
+      points.push(min.x, min.y, 0);
+      points.push(max.x, max.y, 0);
 
       const lineGeometry = new LineGeometry().setPositions(points);
 
@@ -88,8 +88,16 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
     gridGroup.add(lineGroup);
   }
 
-  const gridBoundingBox = new Box3();
-  gridBoundingBox.setFromObject(gridGroup, true);
+  const gridBoundingBox = new Box2();
+
+  gridBoundingBox.min.set(
+    -visibleCoords.x + cameraPosition.x,
+    -visibleCoords.y + cameraPosition.y
+  );
+  gridBoundingBox.max.set(
+    visibleCoords.x + cameraPosition.x,
+    visibleCoords.y + cameraPosition.y
+  );
 
   return new Grid(gridGroup, gridBoundingBox);
 }
@@ -149,7 +157,9 @@ function cartesian3D() {
   }
 
   const gridBoundingBox = new Box3();
-  gridBoundingBox.setFromObject(gridGroup, true);
+
+  gridBoundingBox.min.set(-length.x, -length.y, -length.z);
+  gridBoundingBox.max.set(length.x, length.y, length.z);
 
   return new Grid(gridGroup, gridBoundingBox);
 }
