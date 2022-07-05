@@ -468,7 +468,14 @@ async function init() {
       if (activeInput.statement.usesTime) {
         globalScope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
 
-        plotGraph(activeInput);
+        try {
+          plotGraph(activeInput);
+        } catch (error) {
+          const outputArea =
+            activeInput.owner.parentNode.getElementsByClassName("output")[0];
+          outputError(activeInput.mathNode, error, outputArea);
+        }
+
         renderer.render(scene, camera);
       }
     }
