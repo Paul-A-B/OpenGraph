@@ -207,13 +207,17 @@ async function init() {
       this.scope = generateScope(mathNode);
     }
 
-    this.usesTime = mathNode.filter((node) => {
-      return node.isSymbolNode && node.name == "t";
-    }).length;
+    this.usesTime = Boolean(
+      mathNode.filter((node) => {
+        return node.isSymbolNode && node.name == "t";
+      }).length
+    );
 
-    this.isPoint = mathNode.isFunctionNode && mathNode.name === "Punkt";
+    this.isPoint =
+      (mathNode.isFunctionNode && mathNode.name === "Punkt") || false;
 
-    this.isPolygon = mathNode.isFunctionNode && mathNode.name === "Polygon";
+    this.isPolygon =
+      (mathNode.isFunctionNode && mathNode.name === "Polygon") || false;
   }
 
   function generateScope(mathNode) {
