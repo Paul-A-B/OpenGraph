@@ -10,6 +10,10 @@ import {
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
+/**
+ * # materials
+ */
+
 const charMaterial = new MeshBasicMaterial({
   color: 0x000000,
 });
@@ -17,6 +21,10 @@ const coordBackgroundMaterial = new MeshBasicMaterial({
   color: 0xffffff,
   depthWrite: false,
 });
+
+/**
+ * # utility
+ */
 
 function PrecalculatedTextGeometry(geometry, size, offset) {
   this.geometry = geometry;
@@ -37,14 +45,10 @@ function addToCharCache(char) {
 
   charCache[char] = new PrecalculatedTextGeometry(
     characterGeometry,
-    {
-      width:
-        characterGeometry.boundingBox.max.x -
-        characterGeometry.boundingBox.min.x,
-      height:
-        characterGeometry.boundingBox.max.y -
-        characterGeometry.boundingBox.min.y,
-    },
+    new Vector2(
+      characterGeometry.boundingBox.max.x - characterGeometry.boundingBox.min.x,
+      characterGeometry.boundingBox.max.y - characterGeometry.boundingBox.min.y
+    ),
     new Vector2(
       characterGeometry.boundingBox.min.x,
       characterGeometry.boundingBox.min.y
@@ -85,9 +89,7 @@ function generateCoord(number, scale = 1) {
       widthOfPreviousCharacters - charCache[char].offset.x * scale;
     if (char === "-") {
       characterMesh.position.y =
-        (fontSize / 2 -
-          charCache[char].offset.y -
-          charCache[char].size.height) *
+        (fontSize / 2 - charCache[char].offset.y - charCache[char].size.y) *
         scale;
     } else {
       characterMesh.position.y = -charCache[char].offset.y * scale;
@@ -95,16 +97,16 @@ function generateCoord(number, scale = 1) {
     characterMesh.renderOrder = 4; // rendert es später -> es ist vor dem Hintergrund
     charGroup.add(characterMesh);
     widthOfPreviousCharacters +=
-      (charCache[char].size.width + fontSize / 10) * scale;
+      (charCache[char].size.x + fontSize / 10) * scale;
   }
 
   const coordBoundingBox = new Box3();
   coordBoundingBox.setFromObject(charGroup, true);
 
-  const size = {
-    x: coordBoundingBox.max.x - coordBoundingBox.min.x,
-    y: coordBoundingBox.max.y - coordBoundingBox.min.y,
-  };
+  const size = new Vector2(
+    coordBoundingBox.max.x - coordBoundingBox.min.x,
+    coordBoundingBox.max.y - coordBoundingBox.min.y
+  );
 
   charGroup.position.set(-size.x / 2, -size.y / 2, 0);
 
@@ -123,6 +125,10 @@ function generateCoord(number, scale = 1) {
 
   return new Coord(coordMesh, size, coordBoundingBox);
 }
+
+/**
+ * # export
+ */
 
 export function generateCoordinates(
   mode,

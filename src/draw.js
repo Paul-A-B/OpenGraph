@@ -1,7 +1,15 @@
-import { Box3, Vector3 } from "three";
+import { Box2, Vector2 } from "three";
+
+/**
+ * # utility
+ */
 
 let lastCameraZ;
 let zoomRepaint = false;
+
+/**
+ * # export
+ */
 
 function Redraw(graph = [], grid = false, axes = false) {
   this.graph = graph;
@@ -51,16 +59,14 @@ function cartesian2D(
   activeGrid,
   activeAxes
 ) {
-  const cameraBox = new Box3(
-    new Vector3(
+  const cameraBox = new Box2(
+    new Vector2(
       -visibleCoords.x / 2 + cameraPosition.x,
-      -visibleCoords.y / 2 + cameraPosition.y,
-      0
+      -visibleCoords.y / 2 + cameraPosition.y
     ),
-    new Vector3(
+    new Vector2(
       visibleCoords.x / 2 + cameraPosition.x,
-      visibleCoords.y / 2 + cameraPosition.y,
-      0
+      visibleCoords.y / 2 + cameraPosition.y
     )
   );
 

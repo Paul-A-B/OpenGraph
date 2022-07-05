@@ -12,6 +12,10 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
+/**
+ * # materials
+ */
+
 const graph2DMaterial = new LineMaterial({
   color: 0x062596,
   worldUnits: false,
@@ -20,9 +24,13 @@ const graph2DMaterial = new LineMaterial({
 const graph3DMaterial = new MeshBasicMaterial({
   side: DoubleSide,
   vertexColors: true,
-  // wireframe: true,
-  // color: 0xff0000,
 });
+
+/**
+ * # utility
+ */
+
+// find, which dimensions are given and which can be calculated
 
 const scope = {};
 
@@ -50,6 +58,22 @@ function generateDimensions(possibleDimensions) {
     throw new Error("Die Eingabe kann nicht alle Axen enthalten.");
   }
 }
+
+// splits graph and renders current part as one line
+
+function generateLine() {
+  if (graphPoints.length) {
+    const graphGeometry = new LineGeometry().setPositions(graphPoints);
+
+    const graphLine = new Line2(graphGeometry, graph2DMaterial);
+    graphLine.renderOrder = 5; // rendert über Grid und Beschriftung
+    graphLine.geometry.computeBoundingBox();
+
+    graphGroup.add(graphLine);
+  }
+}
+
+// generate the graph
 
 const meshColor = {
   start: {
@@ -192,15 +216,9 @@ function calculatePoints(
         );
       }
     } else {
-      if (graphPoints.length) {
-        if (dimensionCount === 2) {
-          const graphGeometry = new LineGeometry().setPositions(graphPoints);
-          const graphLine = new Line2(graphGeometry, graph2DMaterial);
-          graphLine.renderOrder = 5; // rendert über Grid und Beschriftung
-          graphLine.geometry.computeBoundingBox();
-          graphGroup.add(graphLine);
-          graphPoints.length = 0;
-        }
+      if (dimensionCount === 2) {
+        generateLine();
+        graphPoints.length = 0;
       }
     }
     return;
@@ -226,6 +244,10 @@ function calculatePoints(
     );
   }
 }
+
+/**
+ * # export
+ */
 
 function Graph(mesh, boundingBox) {
   this.mesh = mesh;
@@ -255,9 +277,9 @@ export function generateGraph(
 
   Object.assign(scope, statement.scope, globalScope);
 
-  graph2DMaterial.resolution.copy(resolution);
   switch (mode) {
     case "2D":
+      graph2DMaterial.resolution.copy(resolution);
       return cartesian2D(statement, visibleCoords, cameraPosition, canvas);
     case "3D":
       return cartesian3D(statement);
@@ -275,15 +297,8 @@ function cartesian2D(statement, visibleCoords, cameraPosition, canvas) {
 
   calculatePoints(statement, dimensions, visibleCoords, cameraPosition, canvas);
 
-  if (graphPoints.length) {
-    const graphGeometry = new LineGeometry().setPositions(graphPoints);
+  generateLine();
 
-    const graphLine = new Line2(graphGeometry, graph2DMaterial);
-    graphLine.renderOrder = 5; // rendert über Grid und Beschriftung
-    graphLine.geometry.computeBoundingBox();
-
-    graphGroup.add(graphLine);
-  }
   const graphBoundingBox = new Box3();
   graphBoundingBox.setFromObject(graphGroup);
 

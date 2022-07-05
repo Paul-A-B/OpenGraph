@@ -3,12 +3,20 @@ import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
+/**
+ * # materials
+ */
+
 const axesMaterial = new LineMaterial({
   color: 0x000000,
   worldUnits: false,
   linewidth: 7.5,
   depthWrite: false,
 });
+
+/**
+ * # export
+ */
 
 function Axes(mesh, intersection) {
   this.mesh = mesh;
@@ -75,8 +83,8 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
     }
 
     const axisPoints = [];
-    const min = new Vector3();
-    const max = new Vector3();
+    const min = new Vector2();
+    const max = new Vector2();
 
     min[currentDimension] =
       -visibleCoords[currentDimension] + cameraPosition[currentDimension];
@@ -86,8 +94,8 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
     min[otherDimension] = intersection[otherDimension];
     max[otherDimension] = intersection[otherDimension];
 
-    axisPoints.push(min.x, min.y, min.z);
-    axisPoints.push(max.x, max.y, min.z);
+    axisPoints.push(min.x, min.y, 0);
+    axisPoints.push(max.x, max.y, 0);
 
     const axisGeometry = new LineGeometry().setPositions(axisPoints);
 

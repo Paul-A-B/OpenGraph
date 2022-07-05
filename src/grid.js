@@ -1,7 +1,11 @@
-import { Box2, Box3, Group, Vector2, Vector3 } from "three";
+import { Box3, Group, Vector2, Vector3 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
+
+/**
+ * # materials
+ */
 
 const minorGridLineMaterial = new LineMaterial({
   color: 0x454545,
@@ -15,6 +19,10 @@ const majorGridLineMaterial = new LineMaterial({
   linewidth: 5,
   depthWrite: false,
 });
+
+/**
+ * # export
+ */
 
 function Grid(mesh, boundingBox) {
   (this.mesh = mesh), (this.boundingBox = boundingBox);
@@ -77,6 +85,7 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
       points.push(max.x, max.y, 0);
 
       const lineGeometry = new LineGeometry().setPositions(points);
+      lineGeometry.computeBoundingBox();
 
       if (iteration % 10 === 0) {
         lineGroup.add(new Line2(lineGeometry, majorGridLineMaterial));
@@ -88,16 +97,8 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
     gridGroup.add(lineGroup);
   }
 
-  const gridBoundingBox = new Box2();
-
-  gridBoundingBox.min.set(
-    -visibleCoords.x + cameraPosition.x,
-    -visibleCoords.y + cameraPosition.y
-  );
-  gridBoundingBox.max.set(
-    visibleCoords.x + cameraPosition.x,
-    visibleCoords.y + cameraPosition.y
-  );
+  const gridBoundingBox = new Box3();
+  gridBoundingBox.setFromObject(gridGroup);
 
   return new Grid(gridGroup, gridBoundingBox);
 }
@@ -139,6 +140,7 @@ function cartesian3D() {
         max[otherDimension] = 0;
 
         const lineGeometry = new LineGeometry().setPositions(points);
+        lineGeometry.computeBoundingBox();
 
         let line;
         if (iteration % 10 === 0) {
@@ -157,9 +159,7 @@ function cartesian3D() {
   }
 
   const gridBoundingBox = new Box3();
-
-  gridBoundingBox.min.set(-length.x, -length.y, -length.z);
-  gridBoundingBox.max.set(length.x, length.y, length.z);
+  gridBoundingBox.setFromObject(gridGroup);
 
   return new Grid(gridGroup, gridBoundingBox);
 }

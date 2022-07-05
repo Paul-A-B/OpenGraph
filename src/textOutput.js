@@ -1,3 +1,7 @@
+/**
+ * # MathJax setup
+ */
+
 window.MathJax = {
   options: {
     enableMenu: false,
@@ -20,6 +24,10 @@ function mj(expression) {
     { display: false }
   );
 }
+
+/**
+ * # exports
+ */
 
 export function outputText(math, input, mathNode, outputArea) {
   if (input) {
