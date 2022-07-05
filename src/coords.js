@@ -72,6 +72,9 @@ function generateCoord(number, scale = 1) {
 
   let widthOfPreviousCharacters = 0;
   const charGroup = new Group();
+
+  if (Math.abs(number) < 1) number = number.toExponential();
+
   for (let char of number.toString()) {
     if (!charCache[char]) {
       addToCharCache(char);
@@ -172,8 +175,6 @@ function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
         coord.size[otherDimension] / 2 + (fontSize / 2) * scale;
 
       coord.boundingBox.setFromObject(coord.mesh, true);
-
-      console.log(currentDimension, variable, intersection[currentDimension]);
 
       if (lastXCoordBoundingBox) {
         if (
