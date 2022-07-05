@@ -51,7 +51,7 @@ async function init() {
     ((window.innerWidth - textIOArea.getBoundingClientRect().width) *
       window.devicePixelRatio) /
       (window.innerHeight * window.devicePixelRatio),
-    0.1,
+    0.075,
     500
   );
   camera.position.set(0, 0, 25);

@@ -173,6 +173,8 @@ function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
 
       coord.boundingBox.setFromObject(coord.mesh, true);
 
+      console.log(currentDimension, variable, intersection[currentDimension]);
+
       if (lastXCoordBoundingBox) {
         if (
           !(
@@ -181,7 +183,7 @@ function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
             lastXCoordBoundingBox.max[currentDimension] >
               coord.boundingBox.max[currentDimension]
           ) &&
-          variable !== intersection[currentDimension]
+          variable.toFixed(10) !== intersection[currentDimension].toFixed(10)
         ) {
           coordLineGroup.add(coord.mesh);
         }
