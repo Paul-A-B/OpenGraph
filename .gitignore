@@ -85,7 +85,5 @@ typings/
 # Webpack
 .webpack/
 
-# Electron-Forge
-out/
-
-public/assets
+# Webpack and Electron-Forge build output
+public/build/

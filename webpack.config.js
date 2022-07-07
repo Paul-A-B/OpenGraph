@@ -5,8 +5,8 @@ module.exports = {
   entry: "./src/main.js",
   output: {
     filename: "app.js",
-    publicPath: "/assets/",
-    path: path.resolve(__dirname, "public", "assets"),
+    publicPath: "/build/",
+    path: path.resolve(__dirname, "public", "build"),
   },
   devServer: {
     static: {
