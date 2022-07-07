@@ -7,3 +7,5 @@ Ein Schulprojekt, dass die Anfänge einer möglichen Geogebra- oder Desmos-Alter
 - [mathjs](https://mathjs.org/)
 - [MathJax](https://www.mathjax.org/)
 - [webpack](https://webpack.js.org/)
+- [Electron](https://www.electronjs.org/)
+- [Electron Forge](https://www.electronforge.io/)

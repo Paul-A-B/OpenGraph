@@ -85,5 +85,8 @@ typings/
 # Webpack
 .webpack/
 
-# Webpack and Electron-Forge build output
+# Webpack build output
 public/build/
+
+# Electron-Forge build output, cannot be changed in the config
+out/
