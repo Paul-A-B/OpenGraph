@@ -1,5 +1,6 @@
 import { all, create } from "mathjs/number";
 import {
+  Box2,
   BufferGeometry,
   Color,
   Float32BufferAttribute,
@@ -23,17 +24,20 @@ import { generateGrid } from "./grid";
 import { initInputFields } from "./inputField";
 import { outputError, outputText } from "./textOutput";
 
-/**
- * # HTML-elements
- */
+/*
+# HTML-elements
+*/
 
 const canvas = document.getElementById("graph");
 const textIOArea = document.getElementById("text-io");
 const modeSelect = document.getElementById("mode-selection");
 
-/**
- * # three.js variables
- */
+/*
+# three.js
+*/
+
+// sets the z-axis to mean up
+Object3D.DefaultUp.set(0, 0, 1);
 
 const renderer = new WebGLRenderer({
   canvas: canvas,
@@ -45,30 +49,41 @@ const renderer = new WebGLRenderer({
 
 const scene = new Scene();
 
+/*
+fov chosen abitrarily,
+aspect ratio takes input area into account,
+near- and far-plane chosen to avoid clipping at current min/max zoom,
+while still being as small as possible for performance reasons 
+*/
 const camera = new PerspectiveCamera(
   45,
   ((window.innerWidth - textIOArea.getBoundingClientRect().width) *
     window.devicePixelRatio) /
     (window.innerHeight * window.devicePixelRatio),
   0.075,
-  500
+  250
 );
 
 const controls = new OrbitControls(camera, canvas);
 
-const polygonMaterial = new LineMaterial({
-  color: 0xfe6262,
-  worldUnits: false,
-  linewidth: 5,
-});
+/*
+# utility
+*/
 
-/**
- * # utility
- */
-
+// width and height of view area in world units, detached from camera position
 const visibleCoords = new Vector2();
-let stepX, stepY, step;
+
+// size between major grid lines
+let gridSizeX, gridSizeY, gridSize;
+
+// size between minor grid lines
+let gridCellSize;
+
+// resolution of the display area
 const resolution = new Vector2();
+
+// world units the camera currently sees, position factored in
+const viewArea = new Box2();
 
 // https://discourse.threejs.org/t/functions-to-calculate-the-visible-width-height-at-a-given-z-depth-from-a-perspective-camera/269
 function visibleHeightAtZDepth(depth, camera) {
@@ -89,6 +104,7 @@ function visibleWidthAtZDepth(depth, camera) {
   return height * camera.aspect;
 }
 
+// update resolution of camera, renderer etc. and check for redrawing
 function reset() {
   const width =
     (window.innerWidth - textIOArea.getBoundingClientRect().width) *
@@ -105,6 +121,7 @@ function reset() {
   updateView();
 }
 
+// deallocate memory when removing object
 function removeMesh(mesh) {
   if (mesh) {
     mesh.traverse((object) => {
@@ -115,13 +132,70 @@ function removeMesh(mesh) {
   }
 }
 
-/**
- * # drawing functions
- */
+/*
+# drawing background
+*/
 
 let activeAxes;
-function drawAxes() {
+function drawAxes(zoomRepaint) {
+  const intersection = new Vector2();
+
   if (activeAxes) {
+    switch (modeSelect.value) {
+      case "2D":
+        /*
+        end of axes isn't in view and no redraw based on zoom
+        -> checks for change in intersection
+        */
+        if (
+          !(
+            activeAxes.boundingBox.max.x < viewArea.max.x ||
+            activeAxes.boundingBox.max.y < viewArea.max.y ||
+            activeAxes.boundingBox.min.x > viewArea.min.x ||
+            activeAxes.boundingBox.min.y > viewArea.min.y
+          ) &&
+          !zoomRepaint
+        ) {
+          // how far the axis should be from the edge of the viewport
+          const sideOffset = 2 * gridCellSize;
+
+          for (const dimension of "xy") {
+            // move intersection depending on view
+            if (viewArea.min[dimension] + sideOffset >= 0) {
+              // align intersection with grid
+              intersection[dimension] =
+                Math.round(viewArea.min[dimension] / gridCellSize) *
+                  gridCellSize +
+                sideOffset;
+            } else if (viewArea.max[dimension] - sideOffset <= 0) {
+              intersection[dimension] =
+                Math.round(viewArea.max[dimension] / gridCellSize) *
+                  gridCellSize -
+                sideOffset;
+            } else {
+              intersection[dimension] = 0;
+            }
+          }
+
+          // cancels redraw if intersection is the same
+          if (
+            activeAxes.intersection.x === intersection.x &&
+            activeAxes.intersection.y === intersection.y
+          )
+            return;
+        } else {
+          /*
+          end of axes is in view or redraw based on zoom,
+          reuse same intersection
+          */
+          intersection.copy(activeAxes.intersection);
+        }
+        break;
+      // only draws axes once
+      case "3D":
+        return;
+    }
+
     removeMesh(activeAxes.mesh);
   }
 
@@ -129,16 +203,18 @@ function drawAxes() {
     modeSelect.value,
     resolution,
     visibleCoords,
-    step,
-    camera.position
+    camera.position,
+    intersection
   );
+
+  // coordinates get added to axes group
   activeAxes.mesh.add(
     generateCoordinates(
       modeSelect.value,
       visibleCoords,
-      step,
+      gridSize,
       camera.position,
-      activeAxes.intersection
+      intersection
     )
   );
 
@@ -155,14 +231,19 @@ function drawGrid() {
     modeSelect.value,
     resolution,
     visibleCoords,
-    step,
+    gridSize,
     camera.position
   );
 
   scene.add(activeGrid.mesh);
 }
 
+/*
+# plotting math
+*/
+
 function plotGraph(input) {
+  // get the graph previously associated with the input element
   const oldInput = activeInputs.filter((existingInput) => {
     return existingInput.owner === input.owner;
   })[0];
@@ -208,22 +289,23 @@ function plotGraph(input) {
 
     activeInputs.push(input);
 
-    scene.add(activeInputs[activeInputs.length - 1].graph.mesh);
+    scene.add(input.graph.mesh);
   }
 }
 
 const pointMaterial = new PointsMaterial({
   color: 0x8c0101,
   size: 15,
+
+  // size now refers to pixels instead
   sizeAttenuation: false,
 });
 
 function generatePoint(coords) {
   for (let i = 0; i < 3; i++) {
-    if (coords[i]) {
-      coords[i] =
-        coords[i].evaluate(globalScope) || globalScope[coords[i].name] || 0;
-    } else {
+    try {
+      coords[i] = coords[i].evaluate(globalScope) || 0;
+    } catch (e) {
       coords[i] = 0;
     }
   }
@@ -238,48 +320,81 @@ function generatePoint(coords) {
   return { mesh: point };
 }
 
+const polygonMaterial = new LineMaterial({
+  color: 0xfe6262,
+
+  // linewidth now refers to pixels instead
+  worldUnits: false,
+  linewidth: 5,
+
+  /*
+  doesn't affect the three.js depth buffer to avoid
+  the lines clipping through the points
+  */
+  depthWrite: false,
+});
+
 function generatePolygon(points) {
   const linePoints = [];
 
   for (const point of points) {
+    // scope contains value for all dimensions
     linePoints.push(globalScope[point].scope);
   }
 
   linePoints.push(linePoints[0]);
 
   const polygonGeometry = new LineGeometry();
+
+  // remove nested arrays so the position attribute can function properly
   polygonGeometry.setPositions(linePoints.flat());
 
+  // resolution needed for adaptive line width (world units == false)
   polygonMaterial.resolution = resolution;
 
   const polygon = new Line2(polygonGeometry, polygonMaterial);
-  polygon.renderOrder = 1;
+  polygon.renderOrder = 5;
 
   return { mesh: polygon };
 }
 
-/**
- * # draw-managing functions
- */
+/*
+# draw-managing 
+*/
 
 function updateView() {
+  // because z acts as zoom, depth must be 0
   visibleCoords.set(
-    visibleWidthAtZDepth(camera.position.z, camera) / 2,
-    visibleHeightAtZDepth(camera.position.z, camera) / 2
+    visibleWidthAtZDepth(0, camera),
+    visibleHeightAtZDepth(0, camera)
   );
 
-  stepX = Math.pow(2, Math.floor(Math.log2(visibleCoords.x) - 1));
-  stepY = Math.pow(2, Math.floor(Math.log2(visibleCoords.y) - 1));
-  step = Math.min(stepX, stepY);
+  // logarithmic grid size
+  gridSizeX = Math.pow(2, Math.floor(Math.log2(visibleCoords.x) - 2));
+  gridSizeY = Math.pow(2, Math.floor(Math.log2(visibleCoords.y) - 2));
+
+  // max better deals with extreme aspect ratios
+  gridSize = Math.max(gridSizeX, gridSizeY);
+
+  viewArea.set(
+    new Vector2(
+      -visibleCoords.x / 2 + camera.position.x,
+      -visibleCoords.y / 2 + camera.position.y
+    ),
+    new Vector2(
+      visibleCoords.x / 2 + camera.position.x,
+      visibleCoords.y / 2 + camera.position.y
+    )
+  );
+
+  gridCellSize = gridSize / 10;
 
   const redraw = needsRedraw(
     modeSelect.value,
-    visibleCoords,
-    step,
+    viewArea,
     camera.position,
     activeInputs,
-    activeGrid,
-    activeAxes
+    activeGrid
   );
 
   for (let i = 0; i < activeInputs.length; i++) {
@@ -291,13 +406,20 @@ function updateView() {
   if (redraw.grid) {
     drawGrid();
   }
-  if (redraw.axes) {
-    drawAxes();
-  }
+
+  /*
+  handling is done inside generateAxes to reuse the
+  calculated intersection needed for the 2D redraw check
+  */
+  drawAxes(redraw.zoomRepaint);
+
   renderer.render(scene, camera);
 }
 
 function animate() {
+  // only rerender once, if it is necessary
+  let rerender = false;
+
   for (const activeInput of activeInputs) {
     if (activeInput.statement.usesTime) {
       globalScope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
@@ -310,27 +432,35 @@ function animate() {
         outputError(activeInput.mathNode, error, outputArea);
       }
 
-      renderer.render(scene, camera);
+      rerender = true;
     }
   }
+
+  if (rerender) renderer.render(scene, camera);
 
   requestAnimationFrame(animate);
 }
 
-/**
- * # input management
- */
+/*
+# input management
+*/
 
+// used for expression parsing and evaluation
 const math = create(all, {});
 
 const activeInputs = [];
 
+// holds variables for every function
 const globalScope = {};
+
+// t used for time
 globalScope.t = Math.sin(Date.now() / 1000) * 2 * Math.PI;
 
+// find the variables used in the expression
 function generateScope(mathNode) {
   const scope = {};
 
+  // if parameters are given, use them
   if (mathNode.isFunctionAssignmentNode) {
     for (const variable of mathNode.params) {
       scope[variable] = undefined;
@@ -338,12 +468,14 @@ function generateScope(mathNode) {
   } else {
     for (const variable of mathNode.filter((node, path, parent) => {
       if (parent) {
+        // if parent.fn == node, then it is a predefined function in math.js
         return node.isSymbolNode && !(parent.fn === node);
       } else {
         return node.isSymbolNode;
       }
     })) {
       if (!scope[variable]) {
+        // sees if the variable already exists in math.js
         try {
           variable.evaluate();
         } catch (error) {
@@ -363,27 +495,32 @@ function Input(htmlElement, statement, graph) {
 }
 
 function Statement(mathNode) {
+  // makes f(x) = x && x behave the same way
   if (mathNode.isFunctionAssignmentNode) {
     this.mathNode = mathNode.expr;
   } else {
     this.mathNode = mathNode;
   }
 
+  // check for custom geometry functions
   if (
     mathNode.isFunctionNode &&
     (mathNode.name === "Punkt" || mathNode.name === "Polygon")
   ) {
+    // scope contains the values of one point or multiple points
     this.scope = mathNode.args;
   } else {
+    // scope containes used variables
     this.scope = generateScope(mathNode);
   }
 
   this.usesTime = Boolean(
     mathNode.filter((node) => {
-      return node.isSymbolNode && node.name == "t";
+      return node.isSymbolNode && node.name === "t";
     }).length
   );
 
+  // || false to avoid undefined values
   this.isPoint =
     (mathNode.isFunctionNode && mathNode.name === "Punkt") || false;
 
@@ -392,7 +529,7 @@ function Statement(mathNode) {
 }
 
 function takeInput(event) {
-  const inputText = `${event.target.value}`;
+  const inputText = event.target.value;
 
   if (!inputText) {
     const oldInput = activeInputs.filter((existingInput) => {
@@ -401,21 +538,33 @@ function takeInput(event) {
 
     if (oldInput) {
       removeMesh(oldInput.graph.mesh);
+
+      // remove variable from global scope
+      delete globalScope[oldInput.statement.mathNode.name];
+
+      // remove input in array
       activeInputs.splice(activeInputs.indexOf(oldInput), 1);
     }
   }
 
+  // only one output class should exist in parent
   const outputArea =
     event.target.parentNode.getElementsByClassName("output")[0];
   try {
+    // input becomes expression tree
     let mathNode = math.parse(inputText);
-    outputText(math, inputText, mathNode, outputArea);
 
+    // display formatted math
+    outputText(math, globalScope, inputText, mathNode, outputArea);
+
+    // adds variable to global scope
     if (mathNode.isAssignmentNode) {
+      // assign point to a variable for use with polygon
       if (mathNode.value.isFunctionNode && mathNode.value.name === "Punkt") {
         globalScope[mathNode.name] = new Statement(mathNode.value);
         mathNode = mathNode.value;
       } else {
+        // evaluate allows assignment that depends on existing variables
         globalScope[mathNode.name] = mathNode.value.evaluate(globalScope);
       }
     }
@@ -436,18 +585,24 @@ function handleInputRemoval(event) {
 
   if (oldInput) {
     removeMesh(oldInput.graph.mesh);
+
+    // remove variable from global scope
+    delete globalScope[oldInput.statement.mathNode.name];
+
+    // remove input in array
     activeInputs.splice(activeInputs.indexOf(oldInput), 1);
   }
 
   renderer.render(scene, camera);
 }
 
-/**
- * # mode initialisation
- */
+/*
+# mode initialisation
+*/
 
 window.addEventListener("load", init);
 
+// reset to initial configuration for specific mode
 function changeMode() {
   activeGrid = null;
   activeAxes = null;
@@ -458,32 +613,34 @@ function changeMode() {
     case "2D":
       scene.background = new Color(0xffffff);
       camera.position.set(0, 0, 25);
-      camera.up.set(0, 1, 0);
       controls.enableRotate = false;
       break;
     case "3D":
       scene.background = new Color(0x999999);
       camera.position.set(25, 25, 12.5);
-      camera.up.set(0, 0, 1);
       controls.enableRotate = true;
       break;
   }
 
   camera.lookAt(0, 0, 0);
+
+  // point around which the controls orbit
   controls.target.set(0, 0, 0);
+
+  // need to be called after manual alteration of controls
   controls.update();
 
   updateView();
 
+  // replot every existing graph, independent from updateView()
   for (const activeInput of activeInputs) {
     plotGraph(activeInput);
-    renderer.render(scene, camera);
   }
+
+  renderer.render(scene, camera);
 }
 
 async function init() {
-  Object3D.DefaultUp.set(0, 0, 1);
-
   renderer.setSize(
     (window.innerWidth - textIOArea.getBoundingClientRect().width) *
       window.devicePixelRatio,
@@ -497,18 +654,24 @@ async function init() {
   scene.background = new Color(0xffffff);
 
   controls.enableRotate = false;
+
+  // max/min zoom
   controls.maxDistance = 200;
   controls.minDistance = 0.1;
 
+  resolution.set(canvas.width, canvas.height);
+
+  // waits for the charCache to initialise
+  await initCharacterCache();
+
+  // reloads site if webglcontext error accurs
   canvas.addEventListener("webglcontextlost", function () {
     location.reload();
   });
 
+  // adds corresponding event handlers
+
   window.addEventListener("resize", reset);
-
-  resolution.set(canvas.width, canvas.height);
-
-  await initCharacterCache();
 
   initInputFields(textIOArea, takeInput);
 
@@ -516,9 +679,11 @@ async function init() {
 
   controls.addEventListener("change", updateView);
 
-  updateView();
-
   modeSelect.addEventListener("change", changeMode);
 
+  // needed for initial rotation of camera
+  controls.update();
+
+  // start animation loop
   animate();
 }

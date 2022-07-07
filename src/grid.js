@@ -1,28 +1,42 @@
-import { Box3, Group, Vector2, Vector3 } from "three";
+import { Box2, Box3, Group, Vector2, Vector3 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 
-/**
- * # materials
- */
+/*
+# materials
+*/
 
 const minorGridLineMaterial = new LineMaterial({
   color: 0x454545,
+
+  // linewidth now refers to pixels instead
   worldUnits: false,
   linewidth: 2.5,
+
+  /*
+  doesn't affect the three.js depth buffer to avoid
+  the grid lines clipping through the axes
+  */
   depthWrite: false,
 });
 const majorGridLineMaterial = new LineMaterial({
   color: 0x151515,
+
+  // linewidth now refers to pixels instead
   worldUnits: false,
   linewidth: 5,
+
+  /*
+  doesn't affect the three.js depth buffer to avoid
+  the grid lines clipping through the axes
+  */
   depthWrite: false,
 });
 
-/**
- * # export
- */
+/*
+# export
+*/
 
 function Grid(mesh, boundingBox) {
   (this.mesh = mesh), (this.boundingBox = boundingBox);
@@ -32,21 +46,23 @@ export function generateGrid(
   mode,
   resolution,
   visibleCoords,
-  step,
+  gridSize,
   cameraPosition
 ) {
+  // resolution needed for adaptive line width (world units == false)
   minorGridLineMaterial.resolution.copy(resolution);
   majorGridLineMaterial.resolution.copy(resolution);
+
   switch (mode) {
     case "2D":
-      return cartesian2D(visibleCoords, step, cameraPosition);
+      return cartesian2D(visibleCoords, gridSize, cameraPosition);
     case "3D":
       return cartesian3D();
   }
 }
 
-function cartesian2D(visibleCoords, step, cameraPosition) {
-  const gridGroup = new Group();
+function cartesian2D(visibleCoords, gridSize, cameraPosition) {
+  const grid = new Group();
 
   const dimensions = ["x", "y"];
 
@@ -55,27 +71,29 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
       (dimension) => dimension != currentDimension
     )[0];
 
-    const lineGroup = new Group();
+    const lines = new Group();
 
+    // double the size of the view
     for (
-      let variable =
+      let dimensionValue =
           Math.round(
             (-visibleCoords[currentDimension] +
               cameraPosition[currentDimension]) /
-              step
-          ) * step,
+              gridSize
+          ) * gridSize,
         iteration = 0;
-      variable <=
+      dimensionValue <=
       visibleCoords[currentDimension] + cameraPosition[currentDimension];
-      variable += step / 10, iteration++
+      dimensionValue += gridSize / 10, iteration++
     ) {
       const points = [];
       const min = new Vector2();
       const max = new Vector2();
 
-      min[currentDimension] = variable;
-      max[currentDimension] = variable;
+      min[currentDimension] = dimensionValue;
+      max[currentDimension] = dimensionValue;
 
+      // double the size of the view
       min[otherDimension] =
         -visibleCoords[otherDimension] + cameraPosition[otherDimension];
       max[otherDimension] =
@@ -88,24 +106,46 @@ function cartesian2D(visibleCoords, step, cameraPosition) {
       lineGeometry.computeBoundingBox();
 
       if (iteration % 10 === 0) {
-        lineGroup.add(new Line2(lineGeometry, majorGridLineMaterial));
+        lines.add(new Line2(lineGeometry, majorGridLineMaterial));
       } else {
-        lineGroup.add(new Line2(lineGeometry, minorGridLineMaterial));
+        lines.add(new Line2(lineGeometry, minorGridLineMaterial));
       }
     }
 
-    gridGroup.add(lineGroup);
+    grid.add(lines);
   }
 
-  const gridBoundingBox = new Box3();
-  gridBoundingBox.setFromObject(gridGroup);
+  const boundingBox = new Box2();
+  boundingBox.set(
+    new Vector2(
+      Math.max(
+        Math.round((-visibleCoords.x + cameraPosition.x) / gridSize) * gridSize,
+        -visibleCoords.x + cameraPosition.x
+      ),
+      Math.max(
+        Math.round((-visibleCoords.y + cameraPosition.y) / gridSize) * gridSize,
+        -visibleCoords.y + cameraPosition.y
+      )
+    ),
+    new Vector2(
+      Math.min(
+        Math.round((visibleCoords.x + cameraPosition.x) / gridSize) * gridSize,
+        visibleCoords.x + cameraPosition.x
+      ),
+      Math.min(
+        Math.round((visibleCoords.y + cameraPosition.y) / gridSize) * gridSize,
+        visibleCoords.y + cameraPosition.y
+      )
+    )
+  );
 
-  return new Grid(gridGroup, gridBoundingBox);
+  return new Grid(grid, boundingBox);
 }
 
 function cartesian3D() {
-  const gridGroup = new Group();
+  const grid = new Group();
 
+  // arbitrary value
   const length = new Vector3(10, 10, 10);
 
   const dimensions = ["x", "y", "z"];
@@ -115,20 +155,22 @@ function cartesian3D() {
       (dimension) => dimension != currentDimension
     );
 
-    const lineGroup = new Group();
+    const lines = new Group();
 
     for (const otherDimension of otherDimensions) {
       for (
-        let variable = Math.round(-length[currentDimension]), iteration = -5;
-        variable <= length[currentDimension];
-        variable += Math.round(length.x / 5) / 5, iteration++
+        let dimensionValue = Math.round(-length[currentDimension]),
+          iteration = -5;
+        dimensionValue <= length[currentDimension];
+        dimensionValue += Math.round(length[currentDimension] / 5) / 5,
+          iteration++
       ) {
         const points = [];
         const min = new Vector3();
         const max = new Vector3();
 
-        min[currentDimension] = variable;
-        max[currentDimension] = variable;
+        min[currentDimension] = dimensionValue;
+        max[currentDimension] = dimensionValue;
 
         min[otherDimension] = -length[otherDimension];
         max[otherDimension] = length[otherDimension];
@@ -142,24 +184,19 @@ function cartesian3D() {
         const lineGeometry = new LineGeometry().setPositions(points);
         lineGeometry.computeBoundingBox();
 
-        let line;
         if (iteration % 10 === 0) {
-          line = new Line2(lineGeometry, majorGridLineMaterial);
+          lines.add(new Line2(lineGeometry, majorGridLineMaterial));
         } else {
-          line = new Line2(lineGeometry, minorGridLineMaterial);
+          lines.add(new Line2(lineGeometry, minorGridLineMaterial));
         }
-
-        line.renderOrder = 1;
-
-        lineGroup.add(line);
       }
     }
 
-    gridGroup.add(lineGroup);
+    grid.add(lines);
   }
 
-  const gridBoundingBox = new Box3();
-  gridBoundingBox.setFromObject(gridGroup);
+  const boundingBox = new Box3();
+  boundingBox.setFromObject(grid);
 
-  return new Grid(gridGroup, gridBoundingBox);
+  return new Grid(grid, boundingBox);
 }

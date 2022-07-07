@@ -1,6 +1,6 @@
-/**
- * # MathJax setup
- */
+/*
+# MathJax setup
+*/
 
 window.MathJax = {
   options: {
@@ -18,6 +18,7 @@ window.MathJax = {
   document.head.appendChild(script);
 })();
 
+// formats math
 function mj(expression) {
   return MathJax.tex2chtml(
     expression.toTex({ parenthesis: "keep", implicit: "hide" }),
@@ -25,24 +26,38 @@ function mj(expression) {
   );
 }
 
-/**
- * # exports
- */
+/*
+# exports
+*/
 
-export function outputText(math, input, mathNode, outputArea) {
+export function outputText(math, globalScope, input, mathNode, outputArea) {
   if (input) {
-    const symbols = mathNode.filter((node) => {
-      return node.isSymbolNode;
+    const undefinedVariables = mathNode.filter((node) => {
+      /*
+      evaluate checks if variable already exists in math.js,
+      error is thrown if symbol is undefined
+      */
+      try {
+        return node.isSymbolNode && !node.evaluate(globalScope);
+      } catch (e) {
+        return true;
+      }
     });
-    if (symbols.length || mathNode.isFunctionAssignmentNode) {
+
+    if (undefinedVariables.length || mathNode.isFunctionAssignmentNode) {
       outputArea.textContent = "";
       outputArea.appendChild(mj(mathNode));
     } else {
       outputArea.textContent = "";
       outputArea.appendChild(mj(mathNode));
+
+      // also display answer if all values are known
       outputArea.appendChild(mj(new math.SymbolNode(" = ")));
-      outputArea.appendChild(mj(new math.ConstantNode(mathNode.evaluate())));
+      outputArea.appendChild(
+        mj(new math.ConstantNode(mathNode.evaluate(globalScope)))
+      );
     }
+    // update display
     MathJax.startup.document.clear();
     MathJax.startup.document.updateDocument();
   } else {

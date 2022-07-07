@@ -1,6 +1,6 @@
-/**
- * # utility
- */
+/*
+# utility
+*/
 
 let container, inputHandler;
 
@@ -23,6 +23,7 @@ function addIOField() {
 }
 
 function removeIOField(ioField) {
+  // used to remove the existing input associated with the ioField
   container.dispatchEvent(
     new CustomEvent("inputFieldRemoved", {
       detail: ioField.getElementsByClassName("input")[0],
@@ -47,9 +48,9 @@ function updateIOFields() {
   }
 }
 
-/**
- * # export
- */
+/*
+# export
+*/
 
 export function initInputFields(htmlParent, eventHandler) {
   container = htmlParent;

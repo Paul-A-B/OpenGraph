@@ -10,25 +10,34 @@ import {
 import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 
-/**
- * # materials
- */
+/*
+# materials
+*/
 
 const charMaterial = new MeshBasicMaterial({
   color: 0x000000,
 });
 const coordBackgroundMaterial = new MeshBasicMaterial({
   color: 0xffffff,
+
+  /*
+  doesn't affect the three.js depth buffer to avoid
+  the background clipping through the text in 3D
+  */
   depthWrite: false,
 });
 
-/**
- * # utility
- */
+/*
+# utility
+*/
+
+// cache TextGeometry for later use because the generation is expensive
 
 function PrecalculatedTextGeometry(geometry, size, offset) {
   this.geometry = geometry;
   this.size = size;
+
+  // difference between the text position and the actual start of the character
   this.offset = offset;
 }
 
@@ -36,29 +45,28 @@ const charCache = {};
 
 const fontSize = 0.25;
 function addToCharCache(char) {
-  const characterGeometry = new TextGeometry(`${char}`, {
+  const character = new TextGeometry(`${char}`, {
     font: font,
     size: fontSize,
     height: 0,
   });
-  characterGeometry.computeBoundingBox();
+  character.computeBoundingBox();
 
   charCache[char] = new PrecalculatedTextGeometry(
-    characterGeometry,
+    character,
     new Vector2(
-      characterGeometry.boundingBox.max.x - characterGeometry.boundingBox.min.x,
-      characterGeometry.boundingBox.max.y - characterGeometry.boundingBox.min.y
+      character.boundingBox.max.x - character.boundingBox.min.x,
+      character.boundingBox.max.y - character.boundingBox.min.y
     ),
-    new Vector2(
-      characterGeometry.boundingBox.min.x,
-      characterGeometry.boundingBox.min.y
-    )
+    new Vector2(character.boundingBox.min.x, character.boundingBox.min.y)
   );
 }
 
 let font;
 export async function initCharacterCache() {
   const loader = new FontLoader();
+
+  // waits for font to load before it generates the geometries
   font = await loader.loadAsync("fonts/IBM Plex Mono_Regular.json");
   for (let char of "1234567890.-") {
     addToCharCache(char);
@@ -71,47 +79,61 @@ function Coord(mesh, size, boundingBox) {
   this.boundingBox = boundingBox;
 }
 
+/*
+general function for turning a number into a coordinate, consisting of a
+group of characters and a plane background
+ */
 function generateCoord(number, scale = 1) {
-  const coordMesh = new Group();
+  const coord = new Group();
 
   let widthOfPreviousCharacters = 0;
-  const charGroup = new Group();
+  const characters = new Group();
 
-  if (Math.abs(number) < 1) number = number.toExponential();
+  // display numbers 0 <-> 1 in scientific notation
+  if (Math.abs(number) < 1 && number !== 0) number = number.toExponential();
 
   for (let char of number.toString()) {
     if (!charCache[char]) {
       addToCharCache(char);
     }
+
     const characterMesh = new Mesh(charCache[char].geometry, charMaterial);
+
     characterMesh.scale.setScalar(scale);
+
     characterMesh.position.x =
       widthOfPreviousCharacters - charCache[char].offset.x * scale;
     if (char === "-") {
+      // center minus-symbol
       characterMesh.position.y =
-        (fontSize / 2 - charCache[char].offset.y - charCache[char].size.y) *
+        (fontSize / 2 - charCache[char].offset.y - charCache[char].size.y / 2) *
         scale;
     } else {
+      // align along consistent baseline
       characterMesh.position.y = -charCache[char].offset.y * scale;
     }
-    characterMesh.renderOrder = 4; // rendert es später -> es ist vor dem Hintergrund
-    charGroup.add(characterMesh);
+    characterMesh.renderOrder = 4;
+
+    characters.add(characterMesh);
+
     widthOfPreviousCharacters +=
       (charCache[char].size.x + fontSize / 10) * scale;
   }
 
-  const coordBoundingBox = new Box3();
-  coordBoundingBox.setFromObject(charGroup, true);
+  const boundingBox = new Box3();
+  boundingBox.setFromObject(characters, true);
 
   const size = new Vector2(
-    coordBoundingBox.max.x - coordBoundingBox.min.x,
-    coordBoundingBox.max.y - coordBoundingBox.min.y
+    boundingBox.max.x - boundingBox.min.x,
+    boundingBox.max.y - boundingBox.min.y
   );
 
-  charGroup.position.set(-size.x / 2, -size.y / 2, 0);
+  // center the characters
+  characters.position.set(-size.x / 2, -size.y / 2, 0);
 
-  coordMesh.add(charGroup);
+  coord.add(characters);
 
+  // generate background on which the characters can be displayed
   const coordBackgroundGeometry = new PlaneGeometry(size.x, size.y);
   const coordBackground = new Mesh(
     coordBackgroundGeometry,
@@ -119,111 +141,134 @@ function generateCoord(number, scale = 1) {
   );
   coordBackground.renderOrder = 3;
 
+  // used for distinction
   coordBackground.name = "background";
 
-  coordMesh.add(coordBackground);
+  coord.add(coordBackground);
 
-  return new Coord(coordMesh, size, coordBoundingBox);
+  return new Coord(coord, size, boundingBox);
 }
 
-/**
- * # export
- */
+/*
+# export
+*/
 
 export function generateCoordinates(
   mode,
   visibleCoords,
-  step,
+  gridSize,
   cameraPosition,
   intersection
 ) {
   switch (mode) {
     case "2D":
-      return cartesian2D(visibleCoords, step, cameraPosition, intersection);
+      return cartesian2D(visibleCoords, gridSize, cameraPosition, intersection);
     case "3D":
-      return cartesian3D(intersection);
+      return cartesian3D();
   }
 }
 
-function cartesian2D(visibleCoords, step, cameraPosition, intersection) {
-  const coordGroup = new Group();
-
-  let coordLineGroup;
-
-  let lastXCoordBoundingBox;
-
-  const scale = step / 4;
+function cartesian2D(visibleCoords, gridSize, cameraPosition, intersection) {
+  const coords = new Group();
 
   const dimensions = ["x", "y"];
 
+  // all the coords along one axis
+  let coordLine = new Group();
+  let lastBoundingBox;
+
+  // scaling indirectly based on zoom
+  const scale = gridSize / 4;
+
   for (const currentDimension of dimensions) {
+    lastBoundingBox = undefined;
+
     const otherDimension = dimensions.filter(
       (dimension) => dimension !== currentDimension
     )[0];
 
-    coordLineGroup = new Group();
-
+    // double the size of the view
     for (
-      let variable =
+      // starting value is aligned to the grid
+      let dimensionValue =
         Math.round(
           (-visibleCoords[currentDimension] +
             cameraPosition[currentDimension]) /
-            step
-        ) * step;
-      variable <=
+            gridSize
+        ) * gridSize;
+      dimensionValue <=
       visibleCoords[currentDimension] + cameraPosition[currentDimension];
-      variable += step / 2
+      dimensionValue += gridSize / 2
     ) {
-      const coord = generateCoord(variable, scale);
+      const coord = generateCoord(dimensionValue, scale);
 
-      coord.mesh.position[currentDimension] = variable;
-      coord.mesh.position[otherDimension] -=
-        coord.size[otherDimension] / 2 + (fontSize / 2) * scale;
+      coord.mesh.position[currentDimension] = dimensionValue;
+
+      // position coords next to the axis
+      if (intersection[otherDimension] <= 0) {
+        coord.mesh.position[otherDimension] -=
+          coord.size[otherDimension] / 2 + (fontSize / 2) * scale;
+      } else {
+        coord.mesh.position[otherDimension] +=
+          coord.size[otherDimension] / 2 + (fontSize / 2) * scale;
+      }
 
       coord.boundingBox.setFromObject(coord.mesh, true);
 
-      if (lastXCoordBoundingBox) {
+      /*
+       only add new coord, if it doesn't intersect the previous one and
+       it isn't at the axis intersection
+      */
+      if (lastBoundingBox) {
         if (
           !(
-            lastXCoordBoundingBox.max[currentDimension] >
+            lastBoundingBox.max[currentDimension] >
               coord.boundingBox.min[currentDimension] ||
-            lastXCoordBoundingBox.max[currentDimension] >
+            lastBoundingBox.max[currentDimension] >
               coord.boundingBox.max[currentDimension]
           ) &&
-          variable.toFixed(10) !== intersection[currentDimension].toFixed(10)
+          dimensionValue.toFixed(10) !==
+            intersection[currentDimension].toFixed(10)
         ) {
-          coordLineGroup.add(coord.mesh);
+          coordLine.add(coord.mesh);
+          lastBoundingBox = coord.boundingBox;
         }
+      } else {
+        lastBoundingBox = coord.boundingBox;
       }
-      lastXCoordBoundingBox = coord.boundingBox;
     }
-    coordLineGroup.position[otherDimension] += intersection[otherDimension];
+    // move coords next to axis
+    coordLine.position[otherDimension] += intersection[otherDimension];
 
-    coordGroup.add(coordLineGroup);
+    coords.add(coordLine);
+
+    // reset the group for the next iteration
+    coordLine = new Group();
   }
-  return coordGroup;
+
+  return coords;
 }
 
-function cartesian3D(intersection) {
-  const coordGroup = new Group();
+function cartesian3D() {
+  const coords = new Group();
 
   const dimensions = ["x", "y", "z"];
 
-  let coordLineGroup;
+  // all the coords along one axis
+  let coordLine = new Group();
 
+  // arbitrary value
   const length = new Vector3(10, 10, 10);
 
   for (const currentDimension of dimensions) {
-    coordLineGroup = new Group();
-
     for (
-      let variable = -length[currentDimension];
-      variable <= length[currentDimension];
-      variable += Math.round(length[currentDimension] / 5)
+      let dimensionValue = -length[currentDimension];
+      dimensionValue <= length[currentDimension];
+      dimensionValue += Math.round(length[currentDimension] / 5)
     ) {
-      const coord = generateCoord(variable);
+      const coord = generateCoord(dimensionValue);
 
-      coord.mesh.position[currentDimension] = variable;
+      coord.mesh.position[currentDimension] = dimensionValue;
 
       const background = coord.mesh.children.find(
         (element) => element.name === "background"
@@ -231,16 +276,18 @@ function cartesian3D(intersection) {
 
       if (background) {
         background.onBeforeRender = (renderer, scene, camera) => {
+          // rotate coords towards camera
           coord.mesh.quaternion.copy(camera.quaternion);
         };
       }
 
-      coordLineGroup.add(coord.mesh);
+      coordLine.add(coord.mesh);
     }
-    coordLineGroup.position[currentDimension] += intersection[currentDimension];
+    coords.add(coordLine);
 
-    coordGroup.add(coordLineGroup);
+    // reset the group for the next iteration
+    coordLine = new Group();
   }
 
-  return coordGroup;
+  return coords;
 }

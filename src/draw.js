@@ -1,77 +1,44 @@
-import { Box2, Vector2 } from "three";
-
-/**
- * # utility
- */
+/*
+# utility
+*/
 
 let lastCameraZ;
 let zoomRepaint = false;
 
-/**
- * # export
- */
+/*
+# export
+*/
 
-function Redraw(graph = [], grid = false, axes = false) {
+function Redraw(graph = [], grid = false, zoomRepaint = false) {
   this.graph = graph;
   this.grid = grid;
-  this.axes = axes;
+  this.zoomRepaint = zoomRepaint;
 }
 
 export function needsRedraw(
   mode,
-  visibleCoords,
-  step,
+  cameraViewArea,
   cameraPosition,
   activeGraphs,
-  activeGrid,
-  activeAxes
+  activeGrid
 ) {
   switch (mode) {
     case "2D":
       return cartesian2D(
-        visibleCoords,
-        step,
+        cameraViewArea,
         cameraPosition,
         activeGraphs,
-        activeGrid,
-        activeAxes
+        activeGrid
       );
     case "3D":
-      const redraw = new Redraw();
-
-      redraw.graph.push(false);
-      if (!activeGrid) {
-        redraw.grid = true;
-      }
-      if (!activeAxes) {
-        redraw.axes = true;
-      }
-
-      return redraw;
+      return cartesian3D(activeGraphs, activeGrid);
   }
 }
 
-function cartesian2D(
-  visibleCoords,
-  step,
-  cameraPosition,
-  activeInputs,
-  activeGrid,
-  activeAxes
-) {
-  const cameraBox = new Box2(
-    new Vector2(
-      -visibleCoords.x / 2 + cameraPosition.x,
-      -visibleCoords.y / 2 + cameraPosition.y
-    ),
-    new Vector2(
-      visibleCoords.x / 2 + cameraPosition.x,
-      visibleCoords.y / 2 + cameraPosition.y
-    )
-  );
-
+function cartesian2D(viewArea, cameraPosition, activeInputs, activeGrid) {
   const redraw = new Redraw();
 
+  // z acts as zoom in 2D
   if (
     cameraPosition.z >= lastCameraZ * 1.2 ||
     cameraPosition.z <= lastCameraZ / 1.2 ||
@@ -84,13 +51,22 @@ function cartesian2D(
   }
 
   for (let i = 0; i < activeInputs.length; i++) {
-    if (activeInputs[i].statement.isPoint) {
+    // geometry doesn't get redrawn
+    if (
+      activeInputs[i].statement.isPoint ||
+      activeInputs[i].statement.isPolygon
+    ) {
       redraw.graph.push(false);
       break;
     }
+
+    /*
+    when graph gets painted, it covers double the viewing area
+    if the end is inside the view -> repaint
+     */
     if (
-      activeInputs[i].graph.boundingBox.max.x < cameraBox.max.x ||
-      activeInputs[i].graph.boundingBox.min.x > cameraBox.min.x ||
+      activeInputs[i].graph.boundingBox.max.x < viewArea.max.x ||
+      activeInputs[i].graph.boundingBox.min.x > viewArea.min.x ||
       zoomRepaint
     ) {
       redraw.graph.push(true);
@@ -99,12 +75,16 @@ function cartesian2D(
     }
   }
 
+  /*
+  when grid gets painted, it covers double the viewing area
+  if the end is inside the view -> repaint
+   */
   if (activeGrid) {
     if (
-      activeGrid.boundingBox.max.x < cameraBox.max.x ||
-      activeGrid.boundingBox.max.y < cameraBox.max.y ||
-      activeGrid.boundingBox.min.x > cameraBox.min.x ||
-      activeGrid.boundingBox.min.y > cameraBox.min.y ||
+      activeGrid.boundingBox.max.x < viewArea.max.x ||
+      activeGrid.boundingBox.max.y < viewArea.max.y ||
+      activeGrid.boundingBox.min.x > viewArea.min.x ||
+      activeGrid.boundingBox.min.y > viewArea.min.y ||
       zoomRepaint
     ) {
       redraw.grid = true;
@@ -113,30 +93,23 @@ function cartesian2D(
     redraw.grid = true;
   }
 
-  if (activeAxes) {
-    if (
-      activeAxes.intersection.x !==
-        Math.round((-visibleCoords.x / 2 + cameraPosition.x) / (step / 10)) *
-          (step / 10) +
-          step / 5 ||
-      activeAxes.intersection.x !==
-        Math.round((visibleCoords.x / 2 + cameraPosition.x) / (step / 10)) *
-          (step / 10) -
-          step / 5 ||
-      activeAxes.intersection.y !==
-        Math.round((-visibleCoords.y / 2 + cameraPosition.y) / (step / 10)) *
-          (step / 10) +
-          step / 5 ||
-      activeAxes.intersection.y !==
-        Math.round((visibleCoords.y / 2 + cameraPosition.y) / (step / 10)) *
-          (step / 10) -
-          step / 5 ||
-      zoomRepaint
-    ) {
-      redraw.axes = true;
-    }
-  } else {
-    redraw.axes = true;
+  if (zoomRepaint) {
+    redraw.zoomRepaint = true;
   }
+
+  return redraw;
+}
+
+// 3D doesn't feature redrawing due to a static position
+function cartesian3D(activeGraphs, activeGrid) {
+  const redraw = new Redraw();
+
+  for (let i = 0; i < activeGraphs.length; i++) {
+    redraw.graph.push(false);
+  }
+  if (!activeGrid) {
+    redraw.grid = true;
+  }
+
   return redraw;
 }
