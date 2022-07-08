@@ -2,6 +2,8 @@
 
 Ein Schulprojekt, dass die Anfänge einer möglichen Geogebra- oder Desmos-Alternative zeigt.
 
+[Onlinevariante](https://paul-a-b.github.io/OpenGraph/app/) gehostet durch Github Pages.
+
 ## Genutzte Technologien:
 - [three.js](https://threejs.org/)
 - [mathjs](https://mathjs.org/)
